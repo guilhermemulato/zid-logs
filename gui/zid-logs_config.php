@@ -8,17 +8,12 @@ $defaults = array(
     'enabled' => false,
     'endpoint' => '',
     'auth_token' => '',
+    'auth_header_name' => 'x-auth-n8n',
     'device_id' => '',
     'interval_rotate_seconds' => 300,
     'interval_ship_seconds' => 60,
     'max_bytes_per_ship' => 262144,
     'ship_format' => 'lines',
-    'tls' => array(
-        'insecure_skip_verify' => false,
-        'ca_path' => '',
-        'client_cert_path' => '',
-        'client_key_path' => '',
-    ),
     'defaults' => array(
         'max_size_mb' => 50,
         'keep' => 10,
@@ -67,7 +62,18 @@ function zidlogs_installed_version_line() {
 }
 
 if ($_POST) {
-    if (isset($_POST['run_update'])) {
+    if (isset($_POST['svc_start'])) {
+        zidlogs_start();
+        $savemsg = 'Service start requested.';
+    } elseif (isset($_POST['svc_stop'])) {
+        zidlogs_stop();
+        $savemsg = 'Service stop requested.';
+    } elseif (isset($_POST['svc_restart'])) {
+        zidlogs_stop();
+        sleep(1);
+        zidlogs_start();
+        $savemsg = 'Service restart requested.';
+    } elseif (isset($_POST['run_update'])) {
         $cmd = "/bin/sh /usr/local/sbin/zid-logs-update 2>&1";
         $out = array();
         $rc = 0;
@@ -80,21 +86,20 @@ if ($_POST) {
         } else {
             $update_msg = $joined !== '' ? $joined : sprintf("Update failed (exit %d).", $rc);
         }
+        zidlogs_stop();
+        sleep(1);
+        zidlogs_start();
     } else {
         $cfg = load_config_file($config_path, $defaults);
 
         $cfg['enabled'] = isset($_POST['enabled']);
         $cfg['endpoint'] = trim($_POST['endpoint']);
         $cfg['auth_token'] = trim($_POST['auth_token']);
+        $cfg['auth_header_name'] = trim($_POST['auth_header_name']);
         $cfg['interval_rotate_seconds'] = intval($_POST['interval_rotate_seconds']);
         $cfg['interval_ship_seconds'] = intval($_POST['interval_ship_seconds']);
         $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship']);
         $cfg['ship_format'] = trim($_POST['ship_format']);
-
-        $cfg['tls']['insecure_skip_verify'] = isset($_POST['tls_insecure']);
-        $cfg['tls']['ca_path'] = trim($_POST['tls_ca_path']);
-        $cfg['tls']['client_cert_path'] = trim($_POST['tls_client_cert_path']);
-        $cfg['tls']['client_key_path'] = trim($_POST['tls_client_key_path']);
 
         $cfg['defaults']['max_size_mb'] = intval($_POST['defaults_max_size_mb']);
         $cfg['defaults']['keep'] = intval($_POST['defaults_keep']);
@@ -102,44 +107,75 @@ if ($_POST) {
         $cfg['defaults']['rotate_on_start'] = isset($_POST['defaults_rotate_on_start']);
 
         if ($cfg['enabled'] && empty($cfg['endpoint'])) {
-            $input_errors[] = 'Endpoint e obrigatorio quando habilitado.';
+            $input_errors[] = 'Endpoint is required when enabled.';
         }
 
         if (count($input_errors) == 0) {
             save_config_file($config_path, $cfg);
-            $savemsg = 'Configuracao salva.';
+            $savemsg = 'Settings saved.';
+            if ($cfg['enabled']) {
+                zidlogs_start();
+            }
         }
     }
 }
 
 $cfg = load_config_file($config_path, $defaults);
+$service_enabled = !empty($cfg['enabled']);
 
-$pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Config'));
+$pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Settings'));
 include('head.inc');
 
-display_top_tabs(zidlogs_tabs('config'));
+display_top_tabs(zidlogs_tabs('settings'));
 ?>
 
-<form method="post">
 <?php if ($savemsg) { print_info_box($savemsg, 'success'); } ?>
 <?php if ($update_msg) { print_info_box(htmlspecialchars($update_msg), 'info'); } ?>
 <?php if ($input_errors) { print_input_errors($input_errors); } ?>
 
+<form method="post">
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Versao instalada')?></h2></div>
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Installed Version')?></h2></div>
     <div class="panel-body">
         <code><?=htmlspecialchars(zidlogs_installed_version_line());?></code>
-        <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
-                onclick="return confirm('Executar update agora?');"><?=gettext('Atualizar')?></button>
         <div style="clear: both;"></div>
     </div>
 </div>
 
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Configuracao')?></h2></div>
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Service controls')?></h2></div>
+    <div class="panel-body">
+        <?php if (zidlogs_status()): ?>
+            <span class="label label-success"><?=gettext('Running')?></span>
+            &nbsp;
+            <button type="submit" name="svc_stop" class="btn btn-sm btn-warning">
+                <i class="fa fa-stop"></i> <?=gettext('Stop')?>
+            </button>
+            <button type="submit" name="svc_restart" class="btn btn-sm btn-primary">
+                <i class="fa fa-refresh"></i> <?=gettext('Restart')?>
+            </button>
+        <?php else: ?>
+            <?php if ($service_enabled): ?>
+                <span class="label label-danger"><?=gettext('Stopped')?></span>
+                &nbsp;
+                <button type="submit" name="svc_start" class="btn btn-sm btn-success">
+                    <i class="fa fa-play"></i> <?=gettext('Start')?>
+                </button>
+            <?php else: ?>
+                <span class="label label-default"><?=gettext('Disabled')?></span>
+            <?php endif; ?>
+        <?php endif; ?>
+        <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
+                onclick="return confirm('Run update now?');"><?=gettext('Update')?></button>
+        <div style="clear: both;"></div>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Settings')?></h2></div>
     <div class="panel-body">
         <div class="form-group">
-            <label><?=gettext('Habilitar')?></label>
+            <label><?=gettext('Enable')?></label>
             <input type="checkbox" name="enabled" value="yes" <?php if ($cfg['enabled']) echo 'checked'; ?>>
         </div>
         <div class="form-group">
@@ -147,23 +183,27 @@ display_top_tabs(zidlogs_tabs('config'));
             <input type="text" class="form-control" name="endpoint" value="<?=htmlspecialchars($cfg['endpoint']);?>">
         </div>
         <div class="form-group">
-            <label><?=gettext('Token')?></label>
+            <label><?=gettext('Auth header name')?></label>
+            <input type="text" class="form-control" name="auth_header_name" value="<?=htmlspecialchars($cfg['auth_header_name']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Auth token')?></label>
             <input type="text" class="form-control" name="auth_token" value="<?=htmlspecialchars($cfg['auth_token']);?>">
         </div>
         <div class="form-group">
-            <label><?=gettext('Intervalo rotacao (s)')?></label>
+            <label><?=gettext('Rotate interval (s)')?></label>
             <input type="number" class="form-control" name="interval_rotate_seconds" value="<?=intval($cfg['interval_rotate_seconds']);?>">
         </div>
         <div class="form-group">
-            <label><?=gettext('Intervalo envio (s)')?></label>
+            <label><?=gettext('Ship interval (s)')?></label>
             <input type="number" class="form-control" name="interval_ship_seconds" value="<?=intval($cfg['interval_ship_seconds']);?>">
         </div>
         <div class="form-group">
-            <label><?=gettext('Max bytes por envio')?></label>
+            <label><?=gettext('Max bytes per ship')?></label>
             <input type="number" class="form-control" name="max_bytes_per_ship" value="<?=intval($cfg['max_bytes_per_ship']);?>">
         </div>
         <div class="form-group">
-            <label><?=gettext('Formato envio')?></label>
+            <label><?=gettext('Ship format')?></label>
             <select name="ship_format" class="form-control">
                 <option value="lines" <?php if ($cfg['ship_format'] == 'lines') echo 'selected'; ?>>lines</option>
                 <option value="raw" <?php if ($cfg['ship_format'] == 'raw') echo 'selected'; ?>>raw</option>
@@ -173,7 +213,7 @@ display_top_tabs(zidlogs_tabs('config'));
 </div>
 
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Padroes de rotacao')?></h2></div>
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Rotation defaults')?></h2></div>
     <div class="panel-body">
         <div class="form-group">
             <label><?=gettext('Max size (MB)')?></label>
@@ -199,32 +239,8 @@ display_top_tabs(zidlogs_tabs('config'));
 </div>
 
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('TLS')?></h2></div>
     <div class="panel-body">
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="tls_insecure" value="yes" <?php if (!empty($cfg['tls']['insecure_skip_verify'])) echo 'checked'; ?>>
-                <?=gettext('Insecure skip verify')?>
-            </label>
-        </div>
-        <div class="form-group">
-            <label><?=gettext('CA path')?></label>
-            <input type="text" class="form-control" name="tls_ca_path" value="<?=htmlspecialchars($cfg['tls']['ca_path']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Client cert path')?></label>
-            <input type="text" class="form-control" name="tls_client_cert_path" value="<?=htmlspecialchars($cfg['tls']['client_cert_path']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Client key path')?></label>
-            <input type="text" class="form-control" name="tls_client_key_path" value="<?=htmlspecialchars($cfg['tls']['client_key_path']);?>">
-        </div>
-    </div>
-</div>
-
-<div class="panel panel-default">
-    <div class="panel-body">
-        <button type="submit" class="btn btn-primary"><?=gettext('Salvar')?></button>
+        <button type="submit" class="btn btn-primary"><?=gettext('Save')?></button>
     </div>
 </div>
 </form>

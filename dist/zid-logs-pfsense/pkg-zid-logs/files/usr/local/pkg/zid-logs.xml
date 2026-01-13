@@ -28,13 +28,13 @@
 
 	<tabs>
 		<tab>
-			<text>Status</text>
-			<url>/zid-logs_status.php</url>
+			<text>Settings</text>
+			<url>/zid-logs_config.php</url>
 			<active/>
 		</tab>
 		<tab>
-			<text>Config</text>
-			<url>/zid-logs_config.php</url>
+			<text>Status</text>
+			<url>/zid-logs_status.php</url>
 		</tab>
 		<tab>
 			<text>Inputs</text>

@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -179,14 +177,14 @@ func postPayload(ctx context.Context, cfg config.Config, payload Payload) error 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	if cfg.AuthToken != "" {
-		req.Header.Set("x-auth-n8n", cfg.AuthToken)
+		header := strings.TrimSpace(cfg.AuthHeaderName)
+		if header == "" {
+			header = "x-auth-n8n"
+		}
+		req.Header.Set(header, cfg.AuthToken)
 	}
 
-	client, err := httpClient(cfg)
-	if err != nil {
-		return err
-	}
-
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -199,39 +197,6 @@ func postPayload(ctx context.Context, cfg config.Config, payload Payload) error 
 	}
 
 	return nil
-}
-
-func httpClient(cfg config.Config) (*http.Client, error) {
-	tlsConfig := &tls.Config{InsecureSkipVerify: cfg.TLS.InsecureSkipVerify}
-
-	if cfg.TLS.CAPath != "" {
-		caData, err := os.ReadFile(cfg.TLS.CAPath)
-		if err != nil {
-			return nil, err
-		}
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(caData) {
-			return nil, errors.New("falha ao carregar CA")
-		}
-		tlsConfig.RootCAs = pool
-	}
-
-	if cfg.TLS.ClientCertPath != "" && cfg.TLS.ClientKeyPath != "" {
-		cert, err := tls.LoadX509KeyPair(cfg.TLS.ClientCertPath, cfg.TLS.ClientKeyPath)
-		if err != nil {
-			return nil, err
-		}
-		tlsConfig.Certificates = []tls.Certificate{cert}
-	}
-
-	transport := &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
-
-	return &http.Client{
-		Timeout:   30 * time.Second,
-		Transport: transport,
-	}, nil
 }
 
 func fileIdentity(info os.FileInfo) (state.FileIdentity, error) {

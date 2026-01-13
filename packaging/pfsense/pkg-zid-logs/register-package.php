@@ -52,7 +52,7 @@ $config['installedpackages']['package'] = array_values($config['installedpackage
 
 $config['installedpackages']['package'][] = array(
     'name' => 'zid-logs',
-    'version' => '0.1.7',
+    'version' => '0.1.10',
     'descr' => 'ZID Logs - rotacao e envio incremental de logs',
     'website' => '',
     'configurationfile' => 'zid-logs.xml',

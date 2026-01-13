@@ -17,6 +17,11 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Testes unitarios iniciais e bundle latest para pfSense adicionados.
 - Registro do pacote pfSense via XML/INC e scripts de ativacao/registro.
 
+## Build e binarios
+- Sempre gerar binarios para pfSense (FreeBSD/amd64, CGO=0) ao final de cada implementacao:
+  - `GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build -o build/zid-logs ./cmd/zid-logs`
+  - Regerar bundle: `make bundle-latest`
+
 ## Estrutura de modulos (proposta)
 - cmd/zid-logs/
 - internal/config

@@ -72,11 +72,11 @@ if ($_POST) {
         );
 
         if (empty($new_input['package']) || empty($new_input['log_id']) || empty($new_input['path'])) {
-            $input_errors[] = 'Package, Log ID e Path sao obrigatorios.';
+            $input_errors[] = 'Package, Log ID and Path are required.';
         } else {
             $manual_inputs[] = $new_input;
             save_manual_inputs($manual_path, $manual_inputs);
-            $savemsg = 'Input manual adicionado.';
+            $savemsg = 'Manual input added.';
         }
     }
 
@@ -86,7 +86,7 @@ if ($_POST) {
             unset($manual_inputs[$idx]);
             $manual_inputs = array_values($manual_inputs);
             save_manual_inputs($manual_path, $manual_inputs);
-            $savemsg = 'Input manual removido.';
+            $savemsg = 'Manual input removed.';
         }
     }
 }
@@ -104,7 +104,7 @@ display_top_tabs(zidlogs_tabs('inputs'));
 <?php if ($input_errors) { print_input_errors($input_errors); } ?>
 
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Inputs registrados')?></h2></div>
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Registered inputs')?></h2></div>
     <div class="panel-body">
         <table class="table table-striped table-hover">
             <thead>
@@ -130,7 +130,7 @@ display_top_tabs(zidlogs_tabs('inputs'));
 </div>
 
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Inputs manuais')?></h2></div>
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Manual inputs')?></h2></div>
     <div class="panel-body">
         <table class="table table-striped table-hover">
             <thead>
@@ -138,7 +138,7 @@ display_top_tabs(zidlogs_tabs('inputs'));
                     <th><?=gettext('Package')?></th>
                     <th><?=gettext('Log ID')?></th>
                     <th><?=gettext('Path')?></th>
-                    <th><?=gettext('Acao')?></th>
+                    <th><?=gettext('Action')?></th>
                 </tr>
             </thead>
             <tbody>
@@ -150,7 +150,7 @@ display_top_tabs(zidlogs_tabs('inputs'));
                     <td>
                         <form method="post" style="display:inline">
                             <input type="hidden" name="remove_index" value="<?=intval($idx);?>">
-                            <button type="submit" class="btn btn-xs btn-danger"><?=gettext('Remover')?></button>
+                            <button type="submit" class="btn btn-xs btn-danger"><?=gettext('Remove')?></button>
                         </form>
                     </td>
                 </tr>
@@ -161,7 +161,7 @@ display_top_tabs(zidlogs_tabs('inputs'));
 </div>
 
 <div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Adicionar input manual')?></h2></div>
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Add manual input')?></h2></div>
     <div class="panel-body">
         <form method="post">
             <div class="form-group">
@@ -196,7 +196,7 @@ display_top_tabs(zidlogs_tabs('inputs'));
                     <?=gettext('Ship enabled')?>
                 </label>
             </div>
-            <button type="submit" name="add_manual" class="btn btn-primary"><?=gettext('Adicionar')?></button>
+            <button type="submit" name="add_manual" class="btn btn-primary"><?=gettext('Add')?></button>
         </form>
     </div>
 </div>

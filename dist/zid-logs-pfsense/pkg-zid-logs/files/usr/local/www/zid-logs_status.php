@@ -65,11 +65,11 @@ if (!empty($output)) {
 if ($_POST) {
     if (isset($_POST['rotate_now'])) {
         shell_exec('/usr/local/sbin/zid-logs rotate > /dev/null 2>&1');
-        print_info_box('Rotacao executada.', 'success');
+        print_info_box('Rotation executed.', 'success');
     }
     if (isset($_POST['ship_now'])) {
         shell_exec('/usr/local/sbin/zid-logs ship > /dev/null 2>&1');
-        print_info_box('Envio executado.', 'success');
+        print_info_box('Ship executed.', 'success');
     }
 }
 ?>

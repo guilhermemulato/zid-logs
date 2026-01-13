@@ -16,13 +16,6 @@ const (
 	StateDBPath       = "/var/db/zid-logs/state.db"
 )
 
-type TLSConfig struct {
-	InsecureSkipVerify bool   `json:"insecure_skip_verify"`
-	CAPath             string `json:"ca_path,omitempty"`
-	ClientCertPath     string `json:"client_cert_path,omitempty"`
-	ClientKeyPath      string `json:"client_key_path,omitempty"`
-}
-
 type RotateDefaults struct {
 	MaxSizeMB     int   `json:"max_size_mb"`
 	Keep          int   `json:"keep"`
@@ -34,12 +27,12 @@ type Config struct {
 	Enabled               bool           `json:"enabled"`
 	Endpoint              string         `json:"endpoint"`
 	AuthToken             string         `json:"auth_token"`
+	AuthHeaderName        string         `json:"auth_header_name"`
 	DeviceID              string         `json:"device_id"`
 	IntervalRotateSeconds int            `json:"interval_rotate_seconds"`
 	IntervalShipSeconds   int            `json:"interval_ship_seconds"`
 	MaxBytesPerShip       int            `json:"max_bytes_per_ship"`
 	ShipFormat            string         `json:"ship_format"`
-	TLS                   TLSConfig      `json:"tls"`
 	Defaults              RotateDefaults `json:"defaults"`
 }
 
@@ -51,9 +44,7 @@ func DefaultConfig() Config {
 		IntervalShipSeconds:   60,
 		MaxBytesPerShip:       256 * 1024,
 		ShipFormat:            "lines",
-		TLS: TLSConfig{
-			InsecureSkipVerify: false,
-		},
+		AuthHeaderName:        "x-auth-n8n",
 		Defaults: RotateDefaults{
 			MaxSizeMB:     50,
 			Keep:          10,
@@ -76,6 +67,9 @@ func ApplyDefaults(cfg Config) Config {
 	}
 	if cfg.ShipFormat == "" {
 		cfg.ShipFormat = def.ShipFormat
+	}
+	if cfg.AuthHeaderName == "" {
+		cfg.AuthHeaderName = def.AuthHeaderName
 	}
 	if cfg.Defaults.MaxSizeMB <= 0 {
 		cfg.Defaults.MaxSizeMB = def.Defaults.MaxSizeMB

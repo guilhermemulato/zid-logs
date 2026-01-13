@@ -18,10 +18,53 @@ define('ZIDLOGS_BINARY', '/usr/local/sbin/zid-logs');
 
 function zidlogs_tabs($active = 'status') {
 	$tabs = [];
+	$tabs[] = [gettext('Settings'), $active === 'settings', '/zid-logs_config.php'];
 	$tabs[] = [gettext('Status'), $active === 'status', '/zid-logs_status.php'];
-	$tabs[] = [gettext('Config'), $active === 'config', '/zid-logs_config.php'];
 	$tabs[] = [gettext('Inputs'), $active === 'inputs', '/zid-logs_inputs.php'];
 	return $tabs;
+}
+
+function zidlogs_get_pids() {
+	$output = array();
+	$ret = 0;
+	exec('/usr/bin/pgrep -f "^/usr/local/sbin/zid-logs" 2>/dev/null', $output, $ret);
+	if ($ret !== 0 || empty($output)) {
+		return array();
+	}
+	$pids = array();
+	foreach ($output as $pid) {
+		$pid = trim($pid);
+		if (is_numeric($pid)) {
+			$pids[] = $pid;
+		}
+	}
+	return $pids;
+}
+
+function zidlogs_status() {
+	$pids = zidlogs_get_pids();
+	return !empty($pids);
+}
+
+function zidlogs_start() {
+	if (is_executable('/usr/local/etc/rc.d/zid_logs')) {
+		exec('/usr/local/etc/rc.d/zid_logs onestart 2>/dev/null');
+		return;
+	}
+	exec('service zid_logs onestart 2>/dev/null');
+}
+
+function zidlogs_stop() {
+	if (is_executable('/usr/local/etc/rc.d/zid_logs')) {
+		exec('/usr/local/etc/rc.d/zid_logs onestop 2>/dev/null');
+	} else {
+		exec('service zid_logs onestop 2>/dev/null');
+	}
+
+	$pids = zidlogs_get_pids();
+	if (!empty($pids)) {
+		exec('kill ' . implode(' ', $pids) . ' 2>/dev/null');
+	}
 }
 
 function zidlogs_install() {
