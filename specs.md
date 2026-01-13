@@ -11,6 +11,8 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - go.mod inicial com dependencia bbolt.
 - Rotacao de logs implementada em internal/rotate.
 - Envio incremental implementado em internal/shipper (payload JSON + gzip).
+- Daemon e comandos CLI implementados em cmd/zid-logs.
+- GUI inicial e rc.d adicionados para integracao pfSense.
 
 ## Estrutura de modulos (proposta)
 - cmd/zid-logs/
