@@ -56,6 +56,10 @@ rm -f /usr/local/www/zid-logs_config.php
 rm -f /usr/local/www/zid-logs_status.php
 rm -f /usr/local/www/zid-logs_inputs.php
 
+echo "Removing package files..."
+rm -f /usr/local/pkg/zid-logs.xml
+rm -f /usr/local/pkg/zid-logs.inc
+
 echo "Removing RC scripts..."
 rm -f /usr/local/etc/rc.d/zid_logs
 
@@ -83,6 +87,41 @@ if [ -f /etc/rc.conf.local ]; then
 fi
 if [ -f /etc/rc.conf ]; then
     sed -i.bak '/zid_logs/d' /etc/rc.conf
+fi
+
+if [ -f /cf/conf/config.xml ]; then
+    echo "Unregistering from pfSense..."
+    php <<'EOF'
+<?php
+require_once('/etc/inc/config.inc');
+$config = parse_config(true);
+
+if (isset($config['installedpackages']['package'])) {
+    foreach ($config['installedpackages']['package'] as $idx => $pkg) {
+        if (isset($pkg['name']) && $pkg['name'] == 'zid-logs') {
+            unset($config['installedpackages']['package'][$idx]);
+            break;
+        }
+    }
+    $config['installedpackages']['package'] = array_values($config['installedpackages']['package']);
+}
+
+if (isset($config['installedpackages']['menu'])) {
+    foreach ($config['installedpackages']['menu'] as $idx => $menu) {
+        if (isset($menu['name']) && $menu['name'] === 'ZID Logs') {
+            unset($config['installedpackages']['menu'][$idx]);
+            break;
+        }
+    }
+    $config['installedpackages']['menu'] = array_values($config['installedpackages']['menu']);
+}
+
+unset($config['installedpackages']['zidlogs']);
+
+write_config("ZID Logs package uninstalled");
+echo "Package unregistered from config.xml\n";
+?>
+EOF
 fi
 
 echo ""

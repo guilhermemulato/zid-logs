@@ -1,4 +1,4 @@
-VERSION ?= 0.1.3
+VERSION ?= 0.1.7
 
 .PHONY: version build clean bundle-latest
 

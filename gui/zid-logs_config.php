@@ -1,5 +1,6 @@
 <?php
 require_once('guiconfig.inc');
+require_once('/usr/local/pkg/zid-logs.inc');
 
 $config_path = '/usr/local/etc/zid-logs/config.json';
 
@@ -71,13 +72,13 @@ if ($_POST) {
         $out = array();
         $rc = 0;
         exec($cmd, $out, $rc);
-        $joined = trim(implode(\"\\n\", $out));
-        if (stripos($joined, \"Already up-to-date\") !== false) {
+        $joined = trim(implode("\n", $out));
+        if (stripos($joined, "Already up-to-date") !== false) {
             $update_msg = $joined;
         } elseif ($rc === 0) {
-            $update_msg = \"done\";
+            $update_msg = "done";
         } else {
-            $update_msg = $joined !== '' ? $joined : sprintf(\"Update failed (exit %d).\", $rc);
+            $update_msg = $joined !== '' ? $joined : sprintf("Update failed (exit %d).", $rc);
         }
     } else {
         $cfg = load_config_file($config_path, $defaults);
@@ -113,108 +114,119 @@ if ($_POST) {
 
 $cfg = load_config_file($config_path, $defaults);
 
-$pgtitle = 'ZID Logs - Config';
+$pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Config'));
 include('head.inc');
-?>
 
-<body>
-<?php include('fbegin.inc'); ?>
+display_top_tabs(zidlogs_tabs('config'));
+?>
 
 <form method="post">
 <?php if ($savemsg) { print_info_box($savemsg, 'success'); } ?>
 <?php if ($update_msg) { print_info_box(htmlspecialchars($update_msg), 'info'); } ?>
 <?php if ($input_errors) { print_input_errors($input_errors); } ?>
 
-<h2>Configuracao</h2>
-<div style="margin-bottom: 10px;">
-    <strong>Versao instalada:</strong> <?=htmlspecialchars(zidlogs_installed_version_line());?>
-    <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
-            onclick="return confirm('Executar update agora?');">Atualizar</button>
-    <div style="clear: both;"></div>
-</div>
-    <table class="formtable">
-        <tr>
-            <td>Habilitar</td>
-            <td>
-                <input type="checkbox" name="enabled" value="yes" <?php if ($cfg['enabled']) echo 'checked'; ?>>
-            </td>
-        </tr>
-        <tr>
-            <td>Endpoint</td>
-            <td><input type="text" name="endpoint" size="60" value="<?=htmlspecialchars($cfg['endpoint']);?>"></td>
-        </tr>
-        <tr>
-            <td>Token</td>
-            <td><input type="text" name="auth_token" size="60" value="<?=htmlspecialchars($cfg['auth_token']);?>"></td>
-        </tr>
-        <tr>
-            <td>Intervalo rotacao (s)</td>
-            <td><input type="number" name="interval_rotate_seconds" value="<?=intval($cfg['interval_rotate_seconds']);?>"></td>
-        </tr>
-        <tr>
-            <td>Intervalo envio (s)</td>
-            <td><input type="number" name="interval_ship_seconds" value="<?=intval($cfg['interval_ship_seconds']);?>"></td>
-        </tr>
-        <tr>
-            <td>Max bytes por envio</td>
-            <td><input type="number" name="max_bytes_per_ship" value="<?=intval($cfg['max_bytes_per_ship']);?>"></td>
-        </tr>
-        <tr>
-            <td>Formato envio</td>
-            <td>
-                <select name="ship_format">
-                    <option value="lines" <?php if ($cfg['ship_format'] == 'lines') echo 'selected'; ?>>lines</option>
-                    <option value="raw" <?php if ($cfg['ship_format'] == 'raw') echo 'selected'; ?>>raw</option>
-                </select>
-            </td>
-        </tr>
-    </table>
-
-    <h2>Padroes de rotacao</h2>
-    <table class="formtable">
-        <tr>
-            <td>Max size (MB)</td>
-            <td><input type="number" name="defaults_max_size_mb" value="<?=intval($cfg['defaults']['max_size_mb']);?>"></td>
-        </tr>
-        <tr>
-            <td>Keep</td>
-            <td><input type="number" name="defaults_keep" value="<?=intval($cfg['defaults']['keep']);?>"></td>
-        </tr>
-        <tr>
-            <td>Compress</td>
-            <td><input type="checkbox" name="defaults_compress" value="yes" <?php if (!empty($cfg['defaults']['compress'])) echo 'checked'; ?>></td>
-        </tr>
-        <tr>
-            <td>Rotate on start</td>
-            <td><input type="checkbox" name="defaults_rotate_on_start" value="yes" <?php if (!empty($cfg['defaults']['rotate_on_start'])) echo 'checked'; ?>></td>
-        </tr>
-    </table>
-
-    <h2>TLS</h2>
-    <table class="formtable">
-        <tr>
-            <td>Insecure skip verify</td>
-            <td><input type="checkbox" name="tls_insecure" value="yes" <?php if (!empty($cfg['tls']['insecure_skip_verify'])) echo 'checked'; ?>></td>
-        </tr>
-        <tr>
-            <td>CA path</td>
-            <td><input type="text" name="tls_ca_path" size="60" value="<?=htmlspecialchars($cfg['tls']['ca_path']);?>"></td>
-        </tr>
-        <tr>
-            <td>Client cert path</td>
-            <td><input type="text" name="tls_client_cert_path" size="60" value="<?=htmlspecialchars($cfg['tls']['client_cert_path']);?>"></td>
-        </tr>
-        <tr>
-            <td>Client key path</td>
-            <td><input type="text" name="tls_client_key_path" size="60" value="<?=htmlspecialchars($cfg['tls']['client_key_path']);?>"></td>
-        </tr>
-    </table>
-
-    <div>
-        <input type="submit" value="Salvar">
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Versao instalada')?></h2></div>
+    <div class="panel-body">
+        <code><?=htmlspecialchars(zidlogs_installed_version_line());?></code>
+        <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
+                onclick="return confirm('Executar update agora?');"><?=gettext('Atualizar')?></button>
+        <div style="clear: both;"></div>
     </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Configuracao')?></h2></div>
+    <div class="panel-body">
+        <div class="form-group">
+            <label><?=gettext('Habilitar')?></label>
+            <input type="checkbox" name="enabled" value="yes" <?php if ($cfg['enabled']) echo 'checked'; ?>>
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Endpoint')?></label>
+            <input type="text" class="form-control" name="endpoint" value="<?=htmlspecialchars($cfg['endpoint']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Token')?></label>
+            <input type="text" class="form-control" name="auth_token" value="<?=htmlspecialchars($cfg['auth_token']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Intervalo rotacao (s)')?></label>
+            <input type="number" class="form-control" name="interval_rotate_seconds" value="<?=intval($cfg['interval_rotate_seconds']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Intervalo envio (s)')?></label>
+            <input type="number" class="form-control" name="interval_ship_seconds" value="<?=intval($cfg['interval_ship_seconds']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Max bytes por envio')?></label>
+            <input type="number" class="form-control" name="max_bytes_per_ship" value="<?=intval($cfg['max_bytes_per_ship']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Formato envio')?></label>
+            <select name="ship_format" class="form-control">
+                <option value="lines" <?php if ($cfg['ship_format'] == 'lines') echo 'selected'; ?>>lines</option>
+                <option value="raw" <?php if ($cfg['ship_format'] == 'raw') echo 'selected'; ?>>raw</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Padroes de rotacao')?></h2></div>
+    <div class="panel-body">
+        <div class="form-group">
+            <label><?=gettext('Max size (MB)')?></label>
+            <input type="number" class="form-control" name="defaults_max_size_mb" value="<?=intval($cfg['defaults']['max_size_mb']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Keep')?></label>
+            <input type="number" class="form-control" name="defaults_keep" value="<?=intval($cfg['defaults']['keep']);?>">
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="defaults_compress" value="yes" <?php if (!empty($cfg['defaults']['compress'])) echo 'checked'; ?>>
+                <?=gettext('Compress')?>
+            </label>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="defaults_rotate_on_start" value="yes" <?php if (!empty($cfg['defaults']['rotate_on_start'])) echo 'checked'; ?>>
+                <?=gettext('Rotate on start')?>
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('TLS')?></h2></div>
+    <div class="panel-body">
+        <div class="form-group">
+            <label>
+                <input type="checkbox" name="tls_insecure" value="yes" <?php if (!empty($cfg['tls']['insecure_skip_verify'])) echo 'checked'; ?>>
+                <?=gettext('Insecure skip verify')?>
+            </label>
+        </div>
+        <div class="form-group">
+            <label><?=gettext('CA path')?></label>
+            <input type="text" class="form-control" name="tls_ca_path" value="<?=htmlspecialchars($cfg['tls']['ca_path']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Client cert path')?></label>
+            <input type="text" class="form-control" name="tls_client_cert_path" value="<?=htmlspecialchars($cfg['tls']['client_cert_path']);?>">
+        </div>
+        <div class="form-group">
+            <label><?=gettext('Client key path')?></label>
+            <input type="text" class="form-control" name="tls_client_key_path" value="<?=htmlspecialchars($cfg['tls']['client_key_path']);?>">
+        </div>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-body">
+        <button type="submit" class="btn btn-primary"><?=gettext('Salvar')?></button>
+    </div>
+</div>
 </form>
 
-<?php include('fend.inc'); ?>
-</body>
-</html>
+<?php include('foot.inc'); ?>

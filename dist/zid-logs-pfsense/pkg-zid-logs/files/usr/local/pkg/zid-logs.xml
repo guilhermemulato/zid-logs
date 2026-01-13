@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<packagegui>
+	<copyright>
+		<![CDATA[
+/*
+ * zid-logs.xml
+ */
+		]]>
+	</copyright>
+	<name>zidlogs</name>
+	<title>Services: ZID Logs</title>
+	<include_file>/usr/local/pkg/zid-logs.inc</include_file>
+	<aftersaveredirect>/zid-logs_config.php</aftersaveredirect>
+
+	<menu>
+		<name>ZID Logs</name>
+		<tooltiptext>Centraliza rotacao e envio de logs ZID</tooltiptext>
+		<section>Services</section>
+		<url>/zid-logs_config.php</url>
+	</menu>
+
+	<service>
+		<name>zid_logs</name>
+		<rcfile>zid_logs</rcfile>
+		<executable>zid-logs</executable>
+		<description><![CDATA[ZID Logs - Rotacao e envio incremental de logs]]></description>
+	</service>
+
+	<tabs>
+		<tab>
+			<text>Status</text>
+			<url>/zid-logs_status.php</url>
+			<active/>
+		</tab>
+		<tab>
+			<text>Config</text>
+			<url>/zid-logs_config.php</url>
+		</tab>
+		<tab>
+			<text>Inputs</text>
+			<url>/zid-logs_inputs.php</url>
+		</tab>
+	</tabs>
+
+	<custom_php_install_command>zidlogs_install();</custom_php_install_command>
+	<custom_php_deinstall_command>zidlogs_deinstall();</custom_php_deinstall_command>
+	<custom_php_resync_config_command>zidlogs_resync();</custom_php_resync_config_command>
+</packagegui>

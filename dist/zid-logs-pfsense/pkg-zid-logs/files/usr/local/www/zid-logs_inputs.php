@@ -1,5 +1,6 @@
 <?php
 require_once('guiconfig.inc');
+require_once('/usr/local/pkg/zid-logs.inc');
 
 $inputs_dir = '/var/db/zid-logs/inputs.d';
 $manual_path = $inputs_dir . '/manual.json';
@@ -93,102 +94,111 @@ if ($_POST) {
 $inputs = load_all_inputs($inputs_dir);
 $manual_inputs = file_exists($manual_path) ? parse_inputs_file($manual_path) : array();
 
-$pgtitle = 'ZID Logs - Inputs';
+$pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Inputs'));
 include('head.inc');
-?>
 
-<body>
-<?php include('fbegin.inc'); ?>
+display_top_tabs(zidlogs_tabs('inputs'));
+?>
 
 <?php if ($savemsg) { print_info_box($savemsg, 'success'); } ?>
 <?php if ($input_errors) { print_input_errors($input_errors); } ?>
 
-<h2>Inputs registrados</h2>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Package</th>
-            <th>Log ID</th>
-            <th>Path</th>
-            <th>Source</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($inputs as $row): ?>
-        <tr>
-            <td><?=htmlspecialchars($row['package']);?></td>
-            <td><?=htmlspecialchars($row['log_id']);?></td>
-            <td><?=htmlspecialchars($row['path']);?></td>
-            <td><?=htmlspecialchars($row['_source']);?></td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
-
-<h2>Inputs manuais</h2>
-<table class="table">
-    <thead>
-        <tr>
-            <th>Package</th>
-            <th>Log ID</th>
-            <th>Path</th>
-            <th>Acao</th>
-        </tr>
-    </thead>
-    <tbody>
-        <?php foreach ($manual_inputs as $idx => $row): ?>
-        <tr>
-            <td><?=htmlspecialchars($row['package']);?></td>
-            <td><?=htmlspecialchars($row['log_id']);?></td>
-            <td><?=htmlspecialchars($row['path']);?></td>
-            <td>
-                <form method="post" style="display:inline">
-                    <input type="hidden" name="remove_index" value="<?=intval($idx);?>">
-                    <input type="submit" value="Remover">
-                </form>
-            </td>
-        </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
-
-<h2>Adicionar input manual</h2>
-<form method="post">
-    <table class="formtable">
-        <tr>
-            <td>Package</td>
-            <td><input type="text" name="package"></td>
-        </tr>
-        <tr>
-            <td>Log ID</td>
-            <td><input type="text" name="log_id"></td>
-        </tr>
-        <tr>
-            <td>Path</td>
-            <td><input type="text" name="path"></td>
-        </tr>
-        <tr>
-            <td>Max size (MB)</td>
-            <td><input type="number" name="max_size_mb" value="50"></td>
-        </tr>
-        <tr>
-            <td>Keep</td>
-            <td><input type="number" name="keep" value="10"></td>
-        </tr>
-        <tr>
-            <td>Compress</td>
-            <td><input type="checkbox" name="compress" checked></td>
-        </tr>
-        <tr>
-            <td>Ship enabled</td>
-            <td><input type="checkbox" name="ship_enabled" checked></td>
-        </tr>
-    </table>
-    <div>
-        <input type="submit" name="add_manual" value="Adicionar">
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Inputs registrados')?></h2></div>
+    <div class="panel-body">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th><?=gettext('Package')?></th>
+                    <th><?=gettext('Log ID')?></th>
+                    <th><?=gettext('Path')?></th>
+                    <th><?=gettext('Source')?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($inputs as $row): ?>
+                <tr>
+                    <td><?=htmlspecialchars($row['package']);?></td>
+                    <td><?=htmlspecialchars($row['log_id']);?></td>
+                    <td><?=htmlspecialchars($row['path']);?></td>
+                    <td><?=htmlspecialchars($row['_source']);?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
     </div>
-</form>
+</div>
 
-<?php include('fend.inc'); ?>
-</body>
-</html>
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Inputs manuais')?></h2></div>
+    <div class="panel-body">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th><?=gettext('Package')?></th>
+                    <th><?=gettext('Log ID')?></th>
+                    <th><?=gettext('Path')?></th>
+                    <th><?=gettext('Acao')?></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($manual_inputs as $idx => $row): ?>
+                <tr>
+                    <td><?=htmlspecialchars($row['package']);?></td>
+                    <td><?=htmlspecialchars($row['log_id']);?></td>
+                    <td><?=htmlspecialchars($row['path']);?></td>
+                    <td>
+                        <form method="post" style="display:inline">
+                            <input type="hidden" name="remove_index" value="<?=intval($idx);?>">
+                            <button type="submit" class="btn btn-xs btn-danger"><?=gettext('Remover')?></button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Adicionar input manual')?></h2></div>
+    <div class="panel-body">
+        <form method="post">
+            <div class="form-group">
+                <label><?=gettext('Package')?></label>
+                <input type="text" class="form-control" name="package">
+            </div>
+            <div class="form-group">
+                <label><?=gettext('Log ID')?></label>
+                <input type="text" class="form-control" name="log_id">
+            </div>
+            <div class="form-group">
+                <label><?=gettext('Path')?></label>
+                <input type="text" class="form-control" name="path">
+            </div>
+            <div class="form-group">
+                <label><?=gettext('Max size (MB)')?></label>
+                <input type="number" class="form-control" name="max_size_mb" value="50">
+            </div>
+            <div class="form-group">
+                <label><?=gettext('Keep')?></label>
+                <input type="number" class="form-control" name="keep" value="10">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="compress" checked>
+                    <?=gettext('Compress')?>
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="ship_enabled" checked>
+                    <?=gettext('Ship enabled')?>
+                </label>
+            </div>
+            <button type="submit" name="add_manual" class="btn btn-primary"><?=gettext('Adicionar')?></button>
+        </form>
+    </div>
+</div>
+
+<?php include('foot.inc'); ?>
