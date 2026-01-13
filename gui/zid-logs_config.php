@@ -49,35 +49,65 @@ function save_config_file($path, $data) {
 
 $input_errors = array();
 $savemsg = '';
+$update_msg = '';
+
+function zidlogs_installed_version_line() {
+    $bin = '/usr/local/sbin/zid-logs';
+    if (!is_executable($bin)) {
+        return 'Not installed';
+    }
+    $out = array();
+    $rc = 0;
+    exec(escapeshellcmd($bin) . " -version 2>&1", $out, $rc);
+    if ($rc !== 0 || empty($out)) {
+        return 'Unknown';
+    }
+    return trim($out[0]);
+}
 
 if ($_POST) {
-    $cfg = load_config_file($config_path, $defaults);
+    if (isset($_POST['run_update'])) {
+        $cmd = "/bin/sh /usr/local/sbin/zid-logs-update 2>&1";
+        $out = array();
+        $rc = 0;
+        exec($cmd, $out, $rc);
+        $joined = trim(implode(\"\\n\", $out));
+        if (stripos($joined, \"Already up-to-date\") !== false) {
+            $update_msg = $joined;
+        } elseif ($rc === 0) {
+            $update_msg = \"done\";
+        } else {
+            $update_msg = $joined !== '' ? $joined : sprintf(\"Update failed (exit %d).\", $rc);
+        }
+    } else {
+        $cfg = load_config_file($config_path, $defaults);
 
-    $cfg['enabled'] = isset($_POST['enabled']);
-    $cfg['endpoint'] = trim($_POST['endpoint']);
-    $cfg['auth_token'] = trim($_POST['auth_token']);
-    $cfg['interval_rotate_seconds'] = intval($_POST['interval_rotate_seconds']);
-    $cfg['interval_ship_seconds'] = intval($_POST['interval_ship_seconds']);
-    $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship']);
-    $cfg['ship_format'] = trim($_POST['ship_format']);
+        $cfg['enabled'] = isset($_POST['enabled']);
+        $cfg['endpoint'] = trim($_POST['endpoint']);
+        $cfg['auth_token'] = trim($_POST['auth_token']);
+        $cfg['interval_rotate_seconds'] = intval($_POST['interval_rotate_seconds']);
+        $cfg['interval_ship_seconds'] = intval($_POST['interval_ship_seconds']);
+        $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship']);
+        $cfg['ship_format'] = trim($_POST['ship_format']);
 
-    $cfg['tls']['insecure_skip_verify'] = isset($_POST['tls_insecure']);
-    $cfg['tls']['ca_path'] = trim($_POST['tls_ca_path']);
-    $cfg['tls']['client_cert_path'] = trim($_POST['tls_client_cert_path']);
-    $cfg['tls']['client_key_path'] = trim($_POST['tls_client_key_path']);
+        $cfg['tls']['insecure_skip_verify'] = isset($_POST['tls_insecure']);
+        $cfg['tls']['ca_path'] = trim($_POST['tls_ca_path']);
+        $cfg['tls']['client_cert_path'] = trim($_POST['tls_client_cert_path']);
+        $cfg['tls']['client_key_path'] = trim($_POST['tls_client_key_path']);
 
-    $cfg['defaults']['max_size_mb'] = intval($_POST['defaults_max_size_mb']);
-    $cfg['defaults']['keep'] = intval($_POST['defaults_keep']);
-    $cfg['defaults']['compress'] = isset($_POST['defaults_compress']);
-    $cfg['defaults']['rotate_on_start'] = isset($_POST['defaults_rotate_on_start']);
+        $cfg['defaults']['max_size_mb'] = intval($_POST['defaults_max_size_mb']);
+        $cfg['defaults']['keep'] = intval($_POST['defaults_keep']);
+        $cfg['defaults']['compress'] = isset($_POST['defaults_compress']);
+        $cfg['defaults']['rotate_on_start'] = isset($_POST['defaults_rotate_on_start']);
 
-    if ($cfg['enabled'] && empty($cfg['endpoint'])) {
-        $input_errors[] = 'Endpoint e obrigatorio quando habilitado.';
-    }
+        if ($cfg['enabled'] && empty($cfg['endpoint'])) {
+            $input_errors[] = 'Endpoint e obrigatorio quando habilitado.';
+        }
 
-    if (count($input_errors) == 0) {
-        save_config_file($config_path, $cfg);
-        $savemsg = 'Configuracao salva.';
+        if (count($input_errors) == 0) {
+            save_config_file($config_path, $cfg);
+            $savemsg = 'Configuracao salva.';
+        }
     }
 }
 
@@ -91,10 +121,17 @@ include('head.inc');
 <?php include('fbegin.inc'); ?>
 
 <form method="post">
-    <?php if ($savemsg) { print_info_box($savemsg, 'success'); } ?>
-    <?php if ($input_errors) { print_input_errors($input_errors); } ?>
+<?php if ($savemsg) { print_info_box($savemsg, 'success'); } ?>
+<?php if ($update_msg) { print_info_box(htmlspecialchars($update_msg), 'info'); } ?>
+<?php if ($input_errors) { print_input_errors($input_errors); } ?>
 
-    <h2>Configuracao</h2>
+<h2>Configuracao</h2>
+<div style="margin-bottom: 10px;">
+    <strong>Versao instalada:</strong> <?=htmlspecialchars(zidlogs_installed_version_line());?>
+    <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
+            onclick="return confirm('Executar update agora?');">Atualizar</button>
+    <div style="clear: both;"></div>
+</div>
     <table class="formtable">
         <tr>
             <td>Habilitar</td>

@@ -20,7 +20,7 @@ import (
 	"zid-logs/internal/status"
 )
 
-const version = "0.1.1"
+const version = "0.1.3"
 
 func main() {
 	if len(os.Args) < 2 {

@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# PROVIDE: zid_logs
+# REQUIRE: LOGIN
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="zid_logs"
+rcvar="zid_logs_enable"
+
+command="/usr/local/sbin/zid-logs"
+command_args="run"
+pidfile="/var/run/zid-logs.pid"
+
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+
+load_rc_config $name
+: ${zid_logs_enable:="NO"}
+
+zid_logs_start() {
+	if [ "${zid_logs_enable}" != "YES" ]; then
+		echo "${name} is disabled"
+		return 0
+	fi
+
+	if command -v daemon >/dev/null 2>&1; then
+		/usr/sbin/daemon -p "${pidfile}" ${command} ${command_args}
+	else
+		${command} ${command_args} &
+		echo $! > "${pidfile}"
+	fi
+}
+
+zid_logs_stop() {
+	if [ -f "${pidfile}" ]; then
+		PID=$(cat "${pidfile}" 2>/dev/null || true)
+		if [ -n "${PID}" ] && kill -0 "${PID}" 2>/dev/null; then
+			kill "${PID}" 2>/dev/null || true
+			sleep 1
+		fi
+		rm -f "${pidfile}" 2>/dev/null || true
+	fi
+}
+
+run_rc_command "$1"
