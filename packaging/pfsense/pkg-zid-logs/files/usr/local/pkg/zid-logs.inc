@@ -96,6 +96,15 @@ function zidlogs_stop() {
 	}
 }
 
+function zidlogs_reload() {
+	if (file_exists(ZIDLOGS_PID_FILE)) {
+		$pid = trim((string)@file_get_contents(ZIDLOGS_PID_FILE));
+		if ($pid !== '' && ctype_digit($pid)) {
+			exec('kill -HUP ' . $pid . ' 2>/dev/null');
+		}
+	}
+}
+
 function zidlogs_install() {
 	@mkdir(ZIDLOGS_CONFIG_DIR, 0755, true);
 	@mkdir(ZIDLOGS_INPUTS_DIR, 0755, true);

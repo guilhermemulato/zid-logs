@@ -45,6 +45,16 @@
 ## 0.1.10.1
 - Status abre estado em modo somente leitura com timeout para evitar travamento da aba.
 
+## 0.1.10.14
+- Reload do daemon ao salvar configuracao com servico ativo.
+
+## 0.1.10.13
+- Scheduler de rotacao por horario avalia a cada minuto.
+
+## 0.1.10.12
+- Rotacao agendada executa no start se horario ja passou.
+- Status read-only tolera timeout no state.db (nao quebra WebGUI).
+
 ## 0.1.10
 - Update movido para Service controls.
 - Start automatico ao habilitar e restart apos update.

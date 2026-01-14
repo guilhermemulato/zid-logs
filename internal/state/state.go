@@ -43,7 +43,7 @@ func Open(path string) (*State, error) {
 }
 
 func OpenReadOnly(path string) (*State, error) {
-	return openWithOptions(path, &bolt.Options{ReadOnly: true, Timeout: time.Second})
+	return openWithOptions(path, &bolt.Options{ReadOnly: true, Timeout: 5 * time.Second})
 }
 
 func openWithOptions(path string, options *bolt.Options) (*State, error) {

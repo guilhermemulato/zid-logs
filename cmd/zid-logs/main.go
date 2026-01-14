@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -20,9 +21,11 @@ import (
 	"zid-logs/internal/shipper"
 	"zid-logs/internal/state"
 	"zid-logs/internal/status"
+
+	bolt "go.etcd.io/bbolt"
 )
 
-const version = "0.1.10.10"
+const version = "0.1.10.14"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -84,14 +87,16 @@ func runCmd() {
 	defer shipTicker.Stop()
 
 	log.Printf("zid-logs iniciado")
+	rotateIfDue(cfg, inputs, st)
 
 	for {
 		select {
 		case <-rotateSched.C:
 			mu.Lock()
 			inputs = refreshInputs(inputs)
-			forceRotate := cfg.RotateAt != ""
-			if err := rotateAll(cfg, inputs, st, forceRotate); err != nil {
+			if cfg.RotateAt != "" {
+				rotateIfDue(cfg, inputs, st)
+			} else if err := rotateAll(cfg, inputs, st, false); err != nil {
 				log.Printf("erro na rotacao: %v", err)
 			}
 			mu.Unlock()
@@ -134,18 +139,11 @@ func startRotateScheduler(cfg config.Config) *rotateScheduler {
 
 	go func() {
 		defer close(done)
-		var timer *time.Timer
 		var ticker *time.Ticker
 
-		startTimer := func() {
-			next, err := nextRotateTime(time.Now(), cfg.RotateAt)
-			if err != nil {
-				next = time.Now().Add(5 * time.Minute)
-			}
-			timer = time.NewTimer(time.Until(next))
-		}
-
-		startTicker := func() {
+		if cfg.RotateAt != "" {
+			ticker = time.NewTicker(time.Minute)
+		} else {
 			interval := time.Duration(cfg.IntervalRotateSeconds) * time.Second
 			if interval <= 0 {
 				interval = 300 * time.Second
@@ -153,39 +151,14 @@ func startRotateScheduler(cfg config.Config) *rotateScheduler {
 			ticker = time.NewTicker(interval)
 		}
 
-		if cfg.RotateAt != "" {
-			startTimer()
-		} else {
-			startTicker()
-		}
-
 		for {
 			select {
 			case <-stop:
-				if timer != nil {
-					timer.Stop()
-				}
 				if ticker != nil {
 					ticker.Stop()
 				}
 				return
 			default:
-			}
-
-			if timer != nil {
-				select {
-				case <-timer.C:
-					out <- time.Now()
-					next, err := nextRotateTime(time.Now(), cfg.RotateAt)
-					if err != nil {
-						next = time.Now().Add(5 * time.Minute)
-					}
-					timer.Reset(time.Until(next))
-				case <-stop:
-					timer.Stop()
-					return
-				}
-				continue
 			}
 
 			select {
@@ -339,7 +312,9 @@ func statusCmd() {
 		fmt.Fprintf(os.Stderr, "erro ao carregar configuracoes: %v\n", err)
 		os.Exit(1)
 	}
-	defer st.Close()
+	if st != nil {
+		defer st.Close()
+	}
 
 	payload := status.Build(cfg, inputs, st, "")
 	data, err := json.MarshalIndent(payload, "", "  ")
@@ -427,6 +402,9 @@ func loadAllReadOnly() (config.Config, []registry.LogInput, *state.State, error)
 	}
 	st, err := state.OpenReadOnly(config.StateDBPath)
 	if err != nil {
+		if errors.Is(err, bolt.ErrTimeout) || strings.Contains(err.Error(), "timeout") {
+			return cfg, inputs, nil, nil
+		}
 		return config.Config{}, nil, nil, err
 	}
 
@@ -453,14 +431,7 @@ func refreshInputs(current []registry.LogInput) []registry.LogInput {
 
 func rotateAll(cfg config.Config, inputs []registry.LogInput, st *state.State, force bool) error {
 	for _, input := range inputs {
-		policy := rotate.ResolvePolicy(cfg.Defaults, input.Policy)
-		var rotated bool
-		var err error
-		if force {
-			rotated, err = rotate.ForceRotate(input.Path, policy)
-		} else {
-			rotated, err = rotate.RotateIfNeeded(input.Path, policy)
-		}
+		rotated, err := rotateOne(cfg, input, st, force)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -468,24 +439,69 @@ func rotateAll(cfg config.Config, inputs []registry.LogInput, st *state.State, f
 			return err
 		}
 		if rotated {
-			if st != nil {
-				cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
-				if err == nil {
-					if !ok {
-						cp = state.Checkpoint{
-							Package: input.Package,
-							LogID:   input.LogID,
-							Path:    input.Path,
-						}
-					}
-					cp.LastRotateAt = time.Now().Unix()
-					_ = st.SaveCheckpoint(cp)
-				}
-			}
 			log.Printf("rotacionado %s", input.Path)
 		}
 	}
 	return nil
+}
+
+func rotateOne(cfg config.Config, input registry.LogInput, st *state.State, force bool) (bool, error) {
+	policy := rotate.ResolvePolicy(cfg.Defaults, input.Policy)
+	var rotated bool
+	var err error
+	if force {
+		rotated, err = rotate.ForceRotate(input.Path, policy)
+	} else {
+		rotated, err = rotate.RotateIfNeeded(input.Path, policy)
+	}
+	if err != nil {
+		return false, err
+	}
+	if rotated && st != nil {
+		cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
+		if err == nil {
+			if !ok {
+				cp = state.Checkpoint{
+					Package: input.Package,
+					LogID:   input.LogID,
+					Path:    input.Path,
+				}
+			}
+			cp.LastRotateAt = time.Now().Unix()
+			_ = st.SaveCheckpoint(cp)
+		}
+	}
+	return rotated, nil
+}
+
+func rotateIfDue(cfg config.Config, inputs []registry.LogInput, st *state.State) {
+	if cfg.RotateAt == "" {
+		return
+	}
+	hour, minute, err := parseRotateAt(cfg.RotateAt)
+	if err != nil {
+		log.Printf("rotate_at invalido: %v", err)
+		return
+	}
+	now := time.Now()
+	scheduled := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	if now.Before(scheduled) {
+		return
+	}
+	for _, input := range inputs {
+		if st == nil {
+			_, _ = rotateOne(cfg, input, nil, true)
+			continue
+		}
+		cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
+		if err != nil {
+			continue
+		}
+		if ok && cp.LastRotateAt >= scheduled.Unix() {
+			continue
+		}
+		_, _ = rotateOne(cfg, input, st, true)
+	}
 }
 
 func shipAll(ctx context.Context, cfg config.Config, inputs []registry.LogInput, st *state.State) error {

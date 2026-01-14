@@ -167,7 +167,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             zidlogs_set_rc_enable($cfg['enabled']);
             $savemsg = 'Settings saved.';
             if ($cfg['enabled']) {
-                zidlogs_start();
+                if (!zidlogs_status()) {
+                    zidlogs_start();
+                } else {
+                    zidlogs_reload();
+                }
             }
         }
     }

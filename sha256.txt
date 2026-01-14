@@ -1,1 +1,1 @@
-e4b296d20214f05eb28cc1e6aa7c81fec1c083b34d9abca006fc9a78758ca9fc  zid-logs-latest.tar.gz
+c9d14d944eaf1407c19b967f088769c2326ce5ac7a2107bb92e9c9bead28ea09  zid-logs-latest.tar.gz
