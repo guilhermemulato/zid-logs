@@ -10,13 +10,13 @@ func TestLoadInputsVariants(t *testing.T) {
 	dir := t.TempDir()
 
 	arrayPath := filepath.Join(dir, "array.json")
-	arrayJSON := `[{"package":"a","log_id":"l1","path":"/tmp/a.log"}]`
+	arrayJSON := `[{"package":"a","log_id":"l1","path":"/tmp/a.log","timestamp_layout":"2006-01-02T15:04:05-07:00"}]`
 	if err := os.WriteFile(arrayPath, []byte(arrayJSON), 0644); err != nil {
 		t.Fatalf("write array: %v", err)
 	}
 
 	singlePath := filepath.Join(dir, "single.json")
-	singleJSON := `{"package":"b","log_id":"l2","path":"/tmp/b.log"}`
+	singleJSON := `{"package":"b","log_id":"l2","path":"/tmp/b.log","timestamp_layout":"02/01/2006 15:04:05"}`
 	if err := os.WriteFile(singlePath, []byte(singleJSON), 0644); err != nil {
 		t.Fatalf("write single: %v", err)
 	}

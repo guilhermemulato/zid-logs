@@ -45,8 +45,9 @@
 ## 0.1.10.1
 - Status abre estado em modo somente leitura com timeout para evitar travamento da aba.
 
-## 0.1.10.14
-- Reload do daemon ao salvar configuracao com servico ativo.
+## 0.1.10.16
+- Notificacao pos-rotacao (signal/command) para reabrir logs.
+- Rotacao inteligente por timestamp_layout no horario agendado.
 
 ## 0.1.10.13
 - Scheduler de rotacao por horario avalia a cada minuto.

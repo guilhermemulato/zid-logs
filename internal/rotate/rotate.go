@@ -1,6 +1,7 @@
 package rotate
 
 import (
+	"bufio"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -50,6 +51,32 @@ func ForceRotate(path string, policy Policy) (bool, error) {
 	return true, nil
 }
 
+func RotateByTimestampCut(path string, policy Policy, layout string, cutoff time.Time) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if layout == "" {
+		return ForceRotate(path, policy)
+	}
+
+	cutOffset, err := findCutOffset(path, layout, cutoff)
+	if err != nil {
+		return false, err
+	}
+	if cutOffset <= 0 {
+		return false, nil
+	}
+	if cutOffset >= info.Size() {
+		return ForceRotate(path, policy)
+	}
+
+	return rotateByOffset(path, info, policy, cutOffset)
+}
+
 func shouldRotate(info os.FileInfo, policy Policy) bool {
 	if policy.MaxSizeMB > 0 {
 		if info.Size() >= int64(policy.MaxSizeMB)*1024*1024 {
@@ -89,6 +116,130 @@ func rotateFile(path string, info os.FileInfo, policy Policy) error {
 	}
 
 	return nil
+}
+
+func rotateByOffset(path string, info os.FileInfo, policy Policy, cutOffset int64) (bool, error) {
+	if policy.Keep < 1 {
+		return false, nil
+	}
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+
+	rotateTmp, err := os.CreateTemp(dir, base+".rotate.*")
+	if err != nil {
+		return false, err
+	}
+	defer os.Remove(rotateTmp.Name())
+
+	remainTmp, err := os.CreateTemp(dir, base+".remain.*")
+	if err != nil {
+		rotateTmp.Close()
+		return false, err
+	}
+	defer os.Remove(remainTmp.Name())
+
+	src, err := os.Open(path)
+	if err != nil {
+		rotateTmp.Close()
+		remainTmp.Close()
+		return false, err
+	}
+	defer src.Close()
+
+	if _, err := io.CopyN(rotateTmp, src, cutOffset); err != nil && err != io.EOF {
+		rotateTmp.Close()
+		remainTmp.Close()
+		return false, err
+	}
+	if _, err := io.Copy(remainTmp, src); err != nil {
+		rotateTmp.Close()
+		remainTmp.Close()
+		return false, err
+	}
+
+	if err := rotateTmp.Close(); err != nil {
+		remainTmp.Close()
+		return false, err
+	}
+	if err := remainTmp.Close(); err != nil {
+		return false, err
+	}
+
+	if err := os.Chmod(rotateTmp.Name(), info.Mode().Perm()); err != nil {
+		return false, err
+	}
+	if err := os.Chmod(remainTmp.Name(), info.Mode().Perm()); err != nil {
+		return false, err
+	}
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		_ = os.Chown(rotateTmp.Name(), int(stat.Uid), int(stat.Gid))
+		_ = os.Chown(remainTmp.Name(), int(stat.Uid), int(stat.Gid))
+	}
+
+	if err := shiftRotated(path, policy); err != nil {
+		return false, err
+	}
+
+	if err := moveFile(rotateTmp.Name(), fmt.Sprintf("%s.1", path)); err != nil {
+		return false, err
+	}
+	if err := moveFile(remainTmp.Name(), path); err != nil {
+		return false, err
+	}
+
+	if policy.Compress {
+		if err := compressRotated(path, policy); err != nil {
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
+func findCutOffset(path string, layout string, cutoff time.Time) (int64, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	var offset int64
+	for {
+		line, err := reader.ReadString('\n')
+		if line != "" {
+			if ts, ok := parseLineTimestamp(line, layout); ok {
+				if !ts.Before(cutoff) {
+					return offset, nil
+				}
+			}
+			offset += int64(len(line))
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	info, err := file.Stat()
+	if err != nil {
+		return offset, nil
+	}
+	return info.Size(), nil
+}
+
+func parseLineTimestamp(line string, layout string) (time.Time, bool) {
+	if len(line) < len(layout) {
+		return time.Time{}, false
+	}
+	prefix := line[:len(layout)]
+	ts, err := time.ParseInLocation(layout, prefix, time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return ts, true
 }
 
 func shiftRotated(path string, policy Policy) error {

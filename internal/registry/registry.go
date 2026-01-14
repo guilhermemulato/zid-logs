@@ -17,11 +17,16 @@ type InputPolicy struct {
 }
 
 type LogInput struct {
-	Package string      `json:"package"`
-	LogID   string      `json:"log_id"`
-	Path    string      `json:"path"`
-	Policy  InputPolicy `json:"policy"`
-	Source  string      `json:"-"`
+	Package           string      `json:"package"`
+	LogID             string      `json:"log_id"`
+	Path              string      `json:"path"`
+	Policy            InputPolicy `json:"policy"`
+	TimestampLayout   string      `json:"timestamp_layout,omitempty"`
+	PostRotateSignal  string      `json:"post_rotate_signal,omitempty"`
+	PostRotatePidfile string      `json:"post_rotate_pidfile,omitempty"`
+	PostRotateMatch   string      `json:"post_rotate_match,omitempty"`
+	PostRotateCommand string      `json:"post_rotate_command,omitempty"`
+	Source            string      `json:"-"`
 }
 
 type InputFile struct {

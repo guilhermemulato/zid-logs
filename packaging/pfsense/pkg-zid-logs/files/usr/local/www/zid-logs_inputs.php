@@ -71,6 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'package' => trim((string)($_POST['package'] ?? '')),
             'log_id' => trim((string)($_POST['log_id'] ?? '')),
             'path' => trim((string)($_POST['path'] ?? '')),
+            'timestamp_layout' => trim((string)($_POST['timestamp_layout'] ?? '')),
+            'post_rotate_signal' => trim((string)($_POST['post_rotate_signal'] ?? '')),
+            'post_rotate_pidfile' => trim((string)($_POST['post_rotate_pidfile'] ?? '')),
+            'post_rotate_match' => trim((string)($_POST['post_rotate_match'] ?? '')),
+            'post_rotate_command' => trim((string)($_POST['post_rotate_command'] ?? '')),
             'policy' => array(
                 'max_size_mb' => intval($_POST['max_size_mb'] ?? 0),
                 'keep' => intval($_POST['keep'] ?? 0),
@@ -96,6 +101,11 @@ $pconfig = array(
     'package' => '',
     'log_id' => '',
     'path' => '',
+    'timestamp_layout' => '',
+    'post_rotate_signal' => 'HUP',
+    'post_rotate_pidfile' => '',
+    'post_rotate_match' => '',
+    'post_rotate_command' => '',
     'max_size_mb' => '50',
     'keep' => '10',
     'compress' => true,
@@ -198,6 +208,36 @@ $section->addInput(new Form_Input(
     'text',
     $pconfig['path']
 ));
+$section->addInput(new Form_Input(
+    'timestamp_layout',
+    gettext('Timestamp layout'),
+    'text',
+    $pconfig['timestamp_layout']
+))->setHelp(gettext('Go time layout, e.g. 2006-01-02T15:04:05-07:00 or 02/01/2006 15:04:05.'));
+$section->addInput(new Form_Input(
+    'post_rotate_signal',
+    gettext('Post-rotate signal'),
+    'text',
+    $pconfig['post_rotate_signal']
+))->setHelp(gettext('Signal name (default HUP).'));
+$section->addInput(new Form_Input(
+    'post_rotate_pidfile',
+    gettext('Post-rotate pidfile'),
+    'text',
+    $pconfig['post_rotate_pidfile']
+))->setHelp(gettext('Pidfile to signal after rotation (optional).'));
+$section->addInput(new Form_Input(
+    'post_rotate_match',
+    gettext('Post-rotate match'),
+    'text',
+    $pconfig['post_rotate_match']
+))->setHelp(gettext('pgrep -f match to signal (optional).'));
+$section->addInput(new Form_Input(
+    'post_rotate_command',
+    gettext('Post-rotate command'),
+    'text',
+    $pconfig['post_rotate_command']
+))->setHelp(gettext('Command to run after rotation (optional).'));
 $section->addInput(new Form_Input(
     'max_size_mb',
     gettext('Max size (MB)'),

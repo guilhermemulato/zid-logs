@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -25,7 +26,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-const version = "0.1.10.14"
+const version = "0.1.10.16"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -439,6 +440,9 @@ func rotateAll(cfg config.Config, inputs []registry.LogInput, st *state.State, f
 			return err
 		}
 		if rotated {
+			if err := notifyPostRotate(input); err != nil {
+				log.Printf("post-rotate falhou %s: %v", input.Path, err)
+			}
 			log.Printf("rotacionado %s", input.Path)
 		}
 	}
@@ -471,6 +475,11 @@ func rotateOne(cfg config.Config, input registry.LogInput, st *state.State, forc
 			_ = st.SaveCheckpoint(cp)
 		}
 	}
+	if rotated {
+		if err := notifyPostRotate(input); err != nil {
+			log.Printf("post-rotate falhou %s: %v", input.Path, err)
+		}
+	}
 	return rotated, nil
 }
 
@@ -489,19 +498,116 @@ func rotateIfDue(cfg config.Config, inputs []registry.LogInput, st *state.State)
 		return
 	}
 	for _, input := range inputs {
-		if st == nil {
-			_, _ = rotateOne(cfg, input, nil, true)
+		var lastRotate int64
+		if st != nil {
+			cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
+			if err == nil && ok {
+				lastRotate = cp.LastRotateAt
+			}
+		}
+		if lastRotate >= scheduled.Unix() {
 			continue
 		}
-		cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
+
+		rotated, err := rotateScheduled(cfg, input, st, scheduled)
+		if err != nil {
+			log.Printf("erro na rotacao: %v", err)
+			continue
+		}
+		if rotated {
+			log.Printf("rotacao agendada %s", input.Path)
+		}
+	}
+}
+
+func notifyPostRotate(input registry.LogInput) error {
+	if input.PostRotateCommand != "" {
+		cmd := exec.Command("/bin/sh", "-c", input.PostRotateCommand)
+		return cmd.Run()
+	}
+	if input.PostRotatePidfile != "" {
+		pidData, err := os.ReadFile(input.PostRotatePidfile)
+		if err != nil {
+			return err
+		}
+		pidStr := strings.TrimSpace(string(pidData))
+		if pidStr == "" {
+			return fmt.Errorf("pidfile vazio")
+		}
+		pid, err := strconv.Atoi(pidStr)
+		if err != nil {
+			return err
+		}
+		signal := resolveSignal(input.PostRotateSignal)
+		return syscall.Kill(pid, signal)
+	}
+	if input.PostRotateMatch != "" {
+		signal := resolveSignal(input.PostRotateSignal)
+		return signalByMatch(input.PostRotateMatch, signal)
+	}
+	return nil
+}
+
+func resolveSignal(name string) syscall.Signal {
+	switch strings.ToUpper(strings.TrimSpace(name)) {
+	case "HUP":
+		return syscall.SIGHUP
+	case "TERM":
+		return syscall.SIGTERM
+	case "USR1":
+		return syscall.SIGUSR1
+	case "USR2":
+		return syscall.SIGUSR2
+	}
+	return syscall.SIGHUP
+}
+
+func signalByMatch(match string, sig syscall.Signal) error {
+	out, err := exec.Command("/usr/bin/pgrep", "-f", match).Output()
+	if err != nil {
+		return err
+	}
+	pids := strings.Fields(string(out))
+	if len(pids) == 0 {
+		return fmt.Errorf("nenhum pid encontrado")
+	}
+	for _, pidStr := range pids {
+		pid, err := strconv.Atoi(pidStr)
 		if err != nil {
 			continue
 		}
-		if ok && cp.LastRotateAt >= scheduled.Unix() {
-			continue
-		}
-		_, _ = rotateOne(cfg, input, st, true)
+		_ = syscall.Kill(pid, sig)
 	}
+	return nil
+}
+
+func rotateScheduled(cfg config.Config, input registry.LogInput, st *state.State, scheduled time.Time) (bool, error) {
+	policy := rotate.ResolvePolicy(cfg.Defaults, input.Policy)
+	var rotated bool
+	var err error
+	if input.TimestampLayout != "" {
+		rotated, err = rotate.RotateByTimestampCut(input.Path, policy, input.TimestampLayout, scheduled)
+	} else {
+		rotated, err = rotate.ForceRotate(input.Path, policy)
+	}
+	if err != nil {
+		return false, err
+	}
+	if rotated && st != nil {
+		cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
+		if err == nil {
+			if !ok {
+				cp = state.Checkpoint{
+					Package: input.Package,
+					LogID:   input.LogID,
+					Path:    input.Path,
+				}
+			}
+			cp.LastRotateAt = time.Now().Unix()
+			_ = st.SaveCheckpoint(cp)
+		}
+	}
+	return rotated, nil
 }
 
 func shipAll(ctx context.Context, cfg config.Config, inputs []registry.LogInput, st *state.State) error {
