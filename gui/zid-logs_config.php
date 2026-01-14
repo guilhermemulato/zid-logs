@@ -10,8 +10,10 @@ $defaults = array(
     'auth_token' => '',
     'auth_header_name' => 'x-auth-n8n',
     'device_id' => '',
-    'interval_rotate_seconds' => 300,
-    'interval_ship_seconds' => 60,
+    'rotate_at' => '00:00',
+    'ship_interval_hours' => 1,
+    'interval_rotate_seconds' => 0,
+    'interval_ship_seconds' => 0,
     'max_bytes_per_ship' => 262144,
     'ship_format' => 'lines',
     'defaults' => array(
@@ -134,8 +136,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cfg['endpoint'] = trim((string)($_POST['endpoint'] ?? ''));
         $cfg['auth_token'] = trim((string)($_POST['auth_token'] ?? ''));
         $cfg['auth_header_name'] = trim((string)($_POST['auth_header_name'] ?? ''));
-        $cfg['interval_rotate_seconds'] = intval($_POST['interval_rotate_seconds'] ?? 0);
-        $cfg['interval_ship_seconds'] = intval($_POST['interval_ship_seconds'] ?? 0);
+        $cfg['rotate_at'] = trim((string)($_POST['rotate_at'] ?? ''));
+        $cfg['ship_interval_hours'] = intval($_POST['ship_interval_hours'] ?? 0);
+        $cfg['interval_rotate_seconds'] = 0;
+        $cfg['interval_ship_seconds'] = 0;
         $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship'] ?? 0);
         $cfg['ship_format'] = trim((string)($_POST['ship_format'] ?? 'lines'));
 
@@ -143,6 +147,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cfg['defaults']['keep'] = intval($_POST['defaults_keep'] ?? 0);
         $cfg['defaults']['compress'] = isset($_POST['defaults_compress']);
         $cfg['defaults']['rotate_on_start'] = isset($_POST['defaults_rotate_on_start']);
+
+        if ($cfg['rotate_at'] === '') {
+            $input_errors[] = 'Rotate time is required.';
+        } elseif (!preg_match('/^([01]?[0-9]|2[0-3])(:[0-5][0-9])?$/', $cfg['rotate_at'])) {
+            $input_errors[] = 'Rotate time must be in HH or HH:MM format.';
+        }
+
+        if ($cfg['ship_interval_hours'] <= 0) {
+            $input_errors[] = 'Ship interval (hours) must be greater than zero.';
+        }
 
         if ($cfg['enabled'] && $cfg['endpoint'] === '') {
             $input_errors[] = 'Endpoint is required when enabled.';
@@ -167,8 +181,8 @@ $pconfig = array(
     'endpoint' => $cfg['endpoint'],
     'auth_token' => $cfg['auth_token'],
     'auth_header_name' => $cfg['auth_header_name'],
-    'interval_rotate_seconds' => $cfg['interval_rotate_seconds'],
-    'interval_ship_seconds' => $cfg['interval_ship_seconds'],
+    'rotate_at' => $cfg['rotate_at'],
+    'ship_interval_hours' => $cfg['ship_interval_hours'],
     'max_bytes_per_ship' => $cfg['max_bytes_per_ship'],
     'ship_format' => $cfg['ship_format'],
     'defaults_max_size_mb' => $cfg['defaults']['max_size_mb'],
@@ -313,16 +327,16 @@ $section->addInput(new Form_Input(
     $pconfig['auth_token']
 ));
 $section->addInput(new Form_Input(
-    'interval_rotate_seconds',
-    gettext('Rotate interval (s)'),
-    'number',
-    $pconfig['interval_rotate_seconds']
+	'rotate_at',
+	gettext('Rotate time (HH:MM)'),
+	'text',
+	$pconfig['rotate_at']
 ));
 $section->addInput(new Form_Input(
-    'interval_ship_seconds',
-    gettext('Ship interval (s)'),
-    'number',
-    $pconfig['interval_ship_seconds']
+	'ship_interval_hours',
+	gettext('Ship interval (hours)'),
+	'number',
+	$pconfig['ship_interval_hours']
 ));
 $section->addInput(new Form_Input(
     'max_bytes_per_ship',

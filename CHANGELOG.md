@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.10.9
+- Rotacao agora ocorre em horario fixo (HH:MM) e envio passa a usar intervalo em horas.
+
 ## 0.1.10.8
 - Update na WebGUI agora transmite a saida em tempo real e finaliza com retorno.
 

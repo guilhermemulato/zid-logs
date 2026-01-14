@@ -29,6 +29,8 @@ type Config struct {
 	AuthToken             string         `json:"auth_token"`
 	AuthHeaderName        string         `json:"auth_header_name"`
 	DeviceID              string         `json:"device_id"`
+	RotateAt              string         `json:"rotate_at"`
+	ShipIntervalHours     int            `json:"ship_interval_hours"`
 	IntervalRotateSeconds int            `json:"interval_rotate_seconds"`
 	IntervalShipSeconds   int            `json:"interval_ship_seconds"`
 	MaxBytesPerShip       int            `json:"max_bytes_per_ship"`
@@ -40,8 +42,10 @@ func DefaultConfig() Config {
 	defaultCompress := true
 	return Config{
 		Enabled:               false,
+		RotateAt:              "00:00",
+		ShipIntervalHours:     1,
 		IntervalRotateSeconds: 300,
-		IntervalShipSeconds:   60,
+		IntervalShipSeconds:   0,
 		MaxBytesPerShip:       256 * 1024,
 		ShipFormat:            "lines",
 		AuthHeaderName:        "x-auth-n8n",
@@ -56,11 +60,20 @@ func DefaultConfig() Config {
 
 func ApplyDefaults(cfg Config) Config {
 	def := DefaultConfig()
-	if cfg.IntervalRotateSeconds <= 0 {
+	if cfg.RotateAt == "" && cfg.IntervalRotateSeconds <= 0 {
+		cfg.RotateAt = def.RotateAt
+	}
+	if cfg.IntervalRotateSeconds < 0 {
+		cfg.IntervalRotateSeconds = 0
+	}
+	if cfg.IntervalRotateSeconds == 0 && cfg.RotateAt == "" {
 		cfg.IntervalRotateSeconds = def.IntervalRotateSeconds
 	}
-	if cfg.IntervalShipSeconds <= 0 {
-		cfg.IntervalShipSeconds = def.IntervalShipSeconds
+	if cfg.ShipIntervalHours <= 0 && cfg.IntervalShipSeconds <= 0 {
+		cfg.ShipIntervalHours = def.ShipIntervalHours
+	}
+	if cfg.IntervalShipSeconds < 0 {
+		cfg.IntervalShipSeconds = 0
 	}
 	if cfg.MaxBytesPerShip <= 0 {
 		cfg.MaxBytesPerShip = def.MaxBytesPerShip

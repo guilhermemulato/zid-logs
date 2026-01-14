@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -20,7 +22,7 @@ import (
 	"zid-logs/internal/status"
 )
 
-const version = "0.1.10.8"
+const version = "0.1.10.9"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -68,16 +70,6 @@ func runCmd() {
 		return
 	}
 
-	rotateInterval := time.Duration(cfg.IntervalRotateSeconds) * time.Second
-	shipInterval := time.Duration(cfg.IntervalShipSeconds) * time.Second
-
-	if rotateInterval <= 0 {
-		rotateInterval = 300 * time.Second
-	}
-	if shipInterval <= 0 {
-		shipInterval = 60 * time.Second
-	}
-
 	var mu sync.Mutex
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -86,23 +78,23 @@ func runCmd() {
 	stop := make(chan os.Signal, 1)
 	trapSignals(reload, stop)
 
-	rotateTicker := time.NewTicker(rotateInterval)
-	shipTicker := time.NewTicker(shipInterval)
-	defer rotateTicker.Stop()
+	rotateSched := startRotateScheduler(cfg)
+	shipTicker := startShipTicker(cfg)
+	defer rotateSched.Stop()
 	defer shipTicker.Stop()
 
 	log.Printf("zid-logs iniciado")
 
 	for {
 		select {
-		case <-rotateTicker.C:
+		case <-rotateSched.C:
 			mu.Lock()
 			inputs = refreshInputs(inputs)
 			if err := rotateAll(cfg, inputs); err != nil {
 				log.Printf("erro na rotacao: %v", err)
 			}
 			mu.Unlock()
-		case <-shipTicker.C:
+		case <-shipTicker.C():
 			mu.Lock()
 			inputs = refreshInputs(inputs)
 			if err := shipAll(ctx, cfg, inputs, st); err != nil {
@@ -116,6 +108,8 @@ func runCmd() {
 			if err != nil {
 				log.Printf("erro ao recarregar configuracoes: %v", err)
 			}
+			rotateSched.Update(cfg)
+			shipTicker.Update(cfg)
 			mu.Unlock()
 		case <-stop:
 			log.Printf("zid-logs encerrando")
@@ -124,6 +118,181 @@ func runCmd() {
 			return
 		}
 	}
+}
+
+type rotateScheduler struct {
+	C    <-chan time.Time
+	stop chan struct{}
+	done chan struct{}
+}
+
+func startRotateScheduler(cfg config.Config) *rotateScheduler {
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	out := make(chan time.Time)
+
+	go func() {
+		defer close(done)
+		var timer *time.Timer
+		var ticker *time.Ticker
+
+		startTimer := func() {
+			next, err := nextRotateTime(time.Now(), cfg.RotateAt)
+			if err != nil {
+				next = time.Now().Add(5 * time.Minute)
+			}
+			timer = time.NewTimer(time.Until(next))
+		}
+
+		startTicker := func() {
+			interval := time.Duration(cfg.IntervalRotateSeconds) * time.Second
+			if interval <= 0 {
+				interval = 300 * time.Second
+			}
+			ticker = time.NewTicker(interval)
+		}
+
+		if cfg.RotateAt != "" {
+			startTimer()
+		} else {
+			startTicker()
+		}
+
+		for {
+			select {
+			case <-stop:
+				if timer != nil {
+					timer.Stop()
+				}
+				if ticker != nil {
+					ticker.Stop()
+				}
+				return
+			default:
+			}
+
+			if timer != nil {
+				select {
+				case <-timer.C:
+					out <- time.Now()
+					next, err := nextRotateTime(time.Now(), cfg.RotateAt)
+					if err != nil {
+						next = time.Now().Add(5 * time.Minute)
+					}
+					timer.Reset(time.Until(next))
+				case <-stop:
+					timer.Stop()
+					return
+				}
+				continue
+			}
+
+			select {
+			case t := <-ticker.C:
+				out <- t
+			case <-stop:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	return &rotateScheduler{C: out, stop: stop, done: done}
+}
+
+func (s *rotateScheduler) Stop() {
+	close(s.stop)
+	<-s.done
+}
+
+func (s *rotateScheduler) Update(cfg config.Config) {
+	s.Stop()
+	newSched := startRotateScheduler(cfg)
+	*s = *newSched
+}
+
+type shipIntervalTicker struct {
+	ticker *time.Ticker
+	ch     chan time.Time
+	stop   chan struct{}
+	done   chan struct{}
+}
+
+func startShipTicker(cfg config.Config) *shipIntervalTicker {
+	ch := make(chan time.Time)
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	ticker := time.NewTicker(resolveShipInterval(cfg))
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case t := <-ticker.C:
+				ch <- t
+			case <-stop:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+	return &shipIntervalTicker{ticker: ticker, ch: ch, stop: stop, done: done}
+}
+
+func (t *shipIntervalTicker) C() <-chan time.Time {
+	return t.ch
+}
+
+func (t *shipIntervalTicker) Stop() {
+	close(t.stop)
+	<-t.done
+	close(t.ch)
+}
+
+func (t *shipIntervalTicker) Update(cfg config.Config) {
+	t.Stop()
+	newTicker := startShipTicker(cfg)
+	*t = *newTicker
+}
+
+func resolveShipInterval(cfg config.Config) time.Duration {
+	if cfg.ShipIntervalHours > 0 {
+		return time.Duration(cfg.ShipIntervalHours) * time.Hour
+	}
+	if cfg.IntervalShipSeconds > 0 {
+		return time.Duration(cfg.IntervalShipSeconds) * time.Second
+	}
+	return time.Hour
+}
+
+func nextRotateTime(now time.Time, rotateAt string) (time.Time, error) {
+	hour, minute, err := parseRotateAt(rotateAt)
+	if err != nil {
+		return time.Time{}, err
+	}
+	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	if !next.After(now) {
+		next = next.Add(24 * time.Hour)
+	}
+	return next, nil
+}
+
+func parseRotateAt(value string) (int, int, error) {
+	parts := strings.Split(strings.TrimSpace(value), ":")
+	if len(parts) == 0 || len(parts) > 2 {
+		return 0, 0, fmt.Errorf("rotate_at invalido")
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 23 {
+		return 0, 0, fmt.Errorf("hora invalida")
+	}
+	minute := 0
+	if len(parts) == 2 {
+		minute, err = strconv.Atoi(parts[1])
+		if err != nil || minute < 0 || minute > 59 {
+			return 0, 0, fmt.Errorf("minuto invalido")
+		}
+	}
+	return hour, minute, nil
 }
 
 func rotateCmd() {

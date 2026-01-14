@@ -23,6 +23,7 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Registro do pacote usa a versao do binario e rc.conf.local e alinhado ao enable do ZID Logs.
 - Versao do binario alinhada com a versao do bundle.
 - Update na WebGUI exibe saida em tempo real e retorna ao final.
+- Rotacao configurada por horario fixo (HH:MM) e envio por intervalo em horas.
 - Scripts de install/update/uninstall e bootstrap updater adicionados.
 - Testes unitarios iniciais e bundle latest para pfSense adicionados.
 - Registro do pacote pfSense via XML/INC e scripts de ativacao/registro.
