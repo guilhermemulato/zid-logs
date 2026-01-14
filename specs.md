@@ -12,6 +12,9 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Rotacao de logs implementada em internal/rotate.
 - Envio incremental implementado em internal/shipper (payload JSON + gzip).
 - Daemon e comandos CLI implementados em cmd/zid-logs.
+- Status abre o state.db em modo somente leitura com timeout para evitar bloqueios na WebGUI.
+- Update remoto roda em background para evitar travamento da WebGUI.
+- Documentacao de registro de logs publicada em zid-logs-register.md.
 - GUI inicial e rc.d adicionados para integracao pfSense.
 - Scripts de install/update/uninstall e bootstrap updater adicionados.
 - Testes unitarios iniciais e bundle latest para pfSense adicionados.

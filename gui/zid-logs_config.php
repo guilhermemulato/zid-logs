@@ -74,21 +74,9 @@ if ($_POST) {
         zidlogs_start();
         $savemsg = 'Service restart requested.';
     } elseif (isset($_POST['run_update'])) {
-        $cmd = "/bin/sh /usr/local/sbin/zid-logs-update 2>&1";
-        $out = array();
-        $rc = 0;
-        exec($cmd, $out, $rc);
-        $joined = trim(implode("\n", $out));
-        if (stripos($joined, "Already up-to-date") !== false) {
-            $update_msg = $joined;
-        } elseif ($rc === 0) {
-            $update_msg = "done";
-        } else {
-            $update_msg = $joined !== '' ? $joined : sprintf("Update failed (exit %d).", $rc);
-        }
-        zidlogs_stop();
-        sleep(1);
-        zidlogs_start();
+        $cmd = "/bin/sh /usr/local/sbin/zid-logs-update > /tmp/zid-logs-update.log 2>&1";
+        mwexec_bg($cmd);
+        $update_msg = "Update iniciado. Aguarde alguns minutos e recarregue a pagina.";
     } else {
         $cfg = load_config_file($config_path, $defaults);
 

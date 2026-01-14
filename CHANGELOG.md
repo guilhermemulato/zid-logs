@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10.2
+- Update remoto agora roda em background para evitar travamento da WebGUI.
+
+## 0.1.10.1
+- Status abre estado em modo somente leitura com timeout para evitar travamento da aba.
+
 ## 0.1.10
 - Update movido para Service controls.
 - Start automatico ao habilitar e restart apos update.

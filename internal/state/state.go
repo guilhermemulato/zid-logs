@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	bolt "go.etcd.io/bbolt"
 )
@@ -32,7 +33,15 @@ type State struct {
 }
 
 func Open(path string) (*State, error) {
-	db, err := bolt.Open(path, 0600, nil)
+	return openWithOptions(path, &bolt.Options{Timeout: time.Second})
+}
+
+func OpenReadOnly(path string) (*State, error) {
+	return openWithOptions(path, &bolt.Options{ReadOnly: true, Timeout: time.Second})
+}
+
+func openWithOptions(path string, options *bolt.Options) (*State, error) {
+	db, err := bolt.Open(path, 0600, options)
 	if err != nil {
 		return nil, err
 	}

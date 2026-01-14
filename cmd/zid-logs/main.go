@@ -20,7 +20,7 @@ import (
 	"zid-logs/internal/status"
 )
 
-const version = "0.1.10"
+const version = "0.1.10.2"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -164,7 +164,7 @@ func shipCmd() {
 }
 
 func statusCmd() {
-	cfg, inputs, st, err := loadAll()
+	cfg, inputs, st, err := loadAllReadOnly()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "erro ao carregar configuracoes: %v\n", err)
 		os.Exit(1)
@@ -231,6 +231,32 @@ func loadAll() (config.Config, []registry.LogInput, *state.State, error) {
 		return config.Config{}, nil, nil, err
 	}
 	st, err := state.Open(config.StateDBPath)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+
+	return cfg, inputs, st, nil
+}
+
+func loadAllReadOnly() (config.Config, []registry.LogInput, *state.State, error) {
+	cfg, err := config.LoadConfig(config.DefaultConfigPath)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+	cfg, err = config.EnsureDeviceID(cfg)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+
+	inputs, err := loadInputsSafe(config.DefaultInputsDir)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(config.StateDBPath), 0755); err != nil {
+		return config.Config{}, nil, nil, err
+	}
+	st, err := state.OpenReadOnly(config.StateDBPath)
 	if err != nil {
 		return config.Config{}, nil, nil, err
 	}
