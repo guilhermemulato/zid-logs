@@ -34,6 +34,22 @@ func RotateIfNeeded(path string, policy Policy) (bool, error) {
 	return true, nil
 }
 
+func ForceRotate(path string, policy Policy) (bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	if err := rotateFile(path, info, policy); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 func shouldRotate(info os.FileInfo, policy Policy) bool {
 	if policy.MaxSizeMB > 0 {
 		if info.Size() >= int64(policy.MaxSizeMB)*1024*1024 {

@@ -44,3 +44,29 @@ func TestRotateKeepAndCompress(t *testing.T) {
 		t.Fatalf("expected .2 removed after gzip")
 	}
 }
+
+func TestForceRotate(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "app.log")
+	if err := os.WriteFile(path, []byte("data"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	policy := Policy{
+		MaxSizeMB: 1,
+		Keep:      2,
+		Compress:  false,
+	}
+
+	rotated, err := ForceRotate(path, policy)
+	if err != nil {
+		t.Fatalf("ForceRotate error: %v", err)
+	}
+	if !rotated {
+		t.Fatalf("ForceRotate did not rotate")
+	}
+
+	if _, err := os.Stat(path + ".1"); err != nil {
+		t.Fatalf("expected rotated file: %v", err)
+	}
+}

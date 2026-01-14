@@ -22,7 +22,7 @@ import (
 	"zid-logs/internal/status"
 )
 
-const version = "0.1.10.9"
+const version = "0.1.10.10"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -90,7 +90,8 @@ func runCmd() {
 		case <-rotateSched.C:
 			mu.Lock()
 			inputs = refreshInputs(inputs)
-			if err := rotateAll(cfg, inputs); err != nil {
+			forceRotate := cfg.RotateAt != ""
+			if err := rotateAll(cfg, inputs, st, forceRotate); err != nil {
 				log.Printf("erro na rotacao: %v", err)
 			}
 			mu.Unlock()
@@ -307,7 +308,7 @@ func rotateCmd() {
 	}
 	defer st.Close()
 
-	if err := rotateAll(cfg, inputs); err != nil {
+	if err := rotateAll(cfg, inputs, st, true); err != nil {
 		log.Printf("erro na rotacao: %v", err)
 		os.Exit(1)
 	}
@@ -339,9 +340,8 @@ func statusCmd() {
 		os.Exit(1)
 	}
 	defer st.Close()
-	_ = cfg
 
-	payload := status.Build(inputs, st, "")
+	payload := status.Build(cfg, inputs, st, "")
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "erro ao gerar status: %v\n", err)
@@ -451,10 +451,16 @@ func refreshInputs(current []registry.LogInput) []registry.LogInput {
 	return inputs
 }
 
-func rotateAll(cfg config.Config, inputs []registry.LogInput) error {
+func rotateAll(cfg config.Config, inputs []registry.LogInput, st *state.State, force bool) error {
 	for _, input := range inputs {
 		policy := rotate.ResolvePolicy(cfg.Defaults, input.Policy)
-		rotated, err := rotate.RotateIfNeeded(input.Path, policy)
+		var rotated bool
+		var err error
+		if force {
+			rotated, err = rotate.ForceRotate(input.Path, policy)
+		} else {
+			rotated, err = rotate.RotateIfNeeded(input.Path, policy)
+		}
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -462,6 +468,20 @@ func rotateAll(cfg config.Config, inputs []registry.LogInput) error {
 			return err
 		}
 		if rotated {
+			if st != nil {
+				cp, ok, err := st.GetCheckpoint(input.Package, input.LogID, input.Path)
+				if err == nil {
+					if !ok {
+						cp = state.Checkpoint{
+							Package: input.Package,
+							LogID:   input.LogID,
+							Path:    input.Path,
+						}
+					}
+					cp.LastRotateAt = time.Now().Unix()
+					_ = st.SaveCheckpoint(cp)
+				}
+			}
 			log.Printf("rotacionado %s", input.Path)
 		}
 	}

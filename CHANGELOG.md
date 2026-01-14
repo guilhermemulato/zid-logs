@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.10.10
+- Status agora inclui resumo, envio e rotacao, e leitura read-only do state nao faz update de bucket.
+
+## 0.1.10.9.4
+- Ajuste do rc.d para usar daemon -f compatível com pfSense.
+
+## 0.1.10.9.3
+- Update passa a usar onestart ao reiniciar o servico, evitando ficar parado.
+
+## 0.1.10.9.2
+- Start do servico agora fecha stdout/stderr para nao travar update na WebGUI.
+
+## 0.1.10.9.1
+- Rotacao agendada agora força rotacao independente do tamanho do arquivo.
+
 ## 0.1.10.9
 - Rotacao agora ocorre em horario fixo (HH:MM) e envio passa a usar intervalo em horas.
 

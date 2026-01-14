@@ -105,7 +105,12 @@ func ShipOnce(ctx context.Context, input registry.LogInput, cfg config.Config, s
 		return nil, err
 	}
 
-	if err := postPayload(ctx, cfg, payload); err != nil {
+	cp.LastAttemptAt = time.Now().Unix()
+	cp.LastBytesSent = int64(n)
+	statusCode, durationMs, err := postPayload(ctx, cfg, payload)
+	cp.LastStatusCode = statusCode
+	cp.LastDurationMs = durationMs
+	if err != nil {
 		cp.LastError = err.Error()
 		_ = st.SaveCheckpoint(cp)
 		return nil, err
@@ -153,25 +158,26 @@ func buildPayload(input registry.LogInput, cfg config.Config, cp state.Checkpoin
 	return payload, nil
 }
 
-func postPayload(ctx context.Context, cfg config.Config, payload Payload) error {
+func postPayload(ctx context.Context, cfg config.Config, payload Payload) (int, int64, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
 	var buf bytes.Buffer
 	zw := gzip.NewWriter(&buf)
 	if _, err := zw.Write(body); err != nil {
 		_ = zw.Close()
-		return err
+		return 0, 0, err
 	}
 	if err := zw.Close(); err != nil {
-		return err
+		return 0, 0, err
 	}
 
+	start := time.Now()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.Endpoint, &buf)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -187,16 +193,16 @@ func postPayload(ctx context.Context, cfg config.Config, payload Payload) error 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return 0, time.Since(start).Milliseconds(), err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+		return resp.StatusCode, time.Since(start).Milliseconds(), fmt.Errorf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
 	}
 
-	return nil
+	return resp.StatusCode, time.Since(start).Milliseconds(), nil
 }
 
 func fileIdentity(info os.FileInfo) (state.FileIdentity, error) {

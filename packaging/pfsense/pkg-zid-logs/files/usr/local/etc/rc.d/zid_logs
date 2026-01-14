@@ -26,9 +26,9 @@ zid_logs_start() {
 	fi
 
 	if command -v daemon >/dev/null 2>&1; then
-		/usr/sbin/daemon -p "${pidfile}" ${command} ${command_args}
+		/usr/sbin/daemon -f -p "${pidfile}" ${command} ${command_args}
 	else
-		${command} ${command_args} &
+		${command} ${command_args} >/dev/null 2>&1 &
 		echo $! > "${pidfile}"
 	fi
 }

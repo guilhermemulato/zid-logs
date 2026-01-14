@@ -251,9 +251,9 @@ echo "Restarting service..."
 if [ "${WAS_RUNNING}" -eq 1 ] || [ "${WAS_ENABLED}" -eq 1 ]; then
 	stop_all
 	if [ -x /usr/local/etc/rc.d/zid_logs ]; then
-		/usr/local/etc/rc.d/zid_logs start 2>/dev/null || true
+		/usr/local/etc/rc.d/zid_logs onestart 2>/dev/null || true
 	else
-		service zid_logs start 2>/dev/null || true
+		service zid_logs onestart 2>/dev/null || true
 	fi
 else
 	echo "(Service was not running before update; not forcing start.)"

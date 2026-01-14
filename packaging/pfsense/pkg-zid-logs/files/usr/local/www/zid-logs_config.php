@@ -331,13 +331,13 @@ $section->addInput(new Form_Input(
 	gettext('Rotate time (HH:MM)'),
 	'text',
 	$pconfig['rotate_at']
-));
+))->setHelp(gettext('Rotation runs once per day at the specified time, regardless of size.'));
 $section->addInput(new Form_Input(
 	'ship_interval_hours',
 	gettext('Ship interval (hours)'),
 	'number',
 	$pconfig['ship_interval_hours']
-));
+))->setHelp(gettext('Send logs every N hours.'));
 $section->addInput(new Form_Input(
     'max_bytes_per_ship',
     gettext('Max bytes per ship'),

@@ -1,4 +1,4 @@
-VERSION ?= 0.1.10.9
+VERSION ?= 0.1.10.10
 
 .PHONY: version build build-freebsd clean bundle-latest
 

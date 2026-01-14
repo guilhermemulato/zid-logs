@@ -20,6 +20,7 @@ include('head.inc');
 display_top_tabs(zidlogs_tabs('status'));
 
 $status = array('inputs' => array());
+$status_error = '';
 $cmd = '/usr/local/sbin/zid-logs status 2>/dev/null';
 $output = shell_exec($cmd);
 if (!empty($output)) {
@@ -27,10 +28,59 @@ if (!empty($output)) {
     if (is_array($json)) {
         $status = $json;
     }
+} else {
+    $status_error = 'Status command returned no data.';
+}
+
+function zidlogs_format_ts($ts) {
+    $ts = intval($ts);
+    if ($ts <= 0) {
+        return '-';
+    }
+    return date('Y-m-d H:i:s', $ts);
 }
 ?>
 
 <?php if ($action_msg) { print_info_box($action_msg, 'success'); } ?>
+<?php if ($status_error) { print_info_box(htmlspecialchars($status_error), 'warning'); } ?>
+
+<div class="panel panel-default">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Summary')?></h2></div>
+    <div class="panel-body">
+        <table class="table table-striped">
+            <tbody>
+                <tr>
+                    <th><?=gettext('Total inputs')?></th>
+                    <td><?=intval($status['total_inputs'] ?? 0);?></td>
+                    <th><?=gettext('Total backlog')?></th>
+                    <td><?=intval($status['total_backlog'] ?? 0);?></td>
+                </tr>
+                <tr>
+                    <th><?=gettext('Last sent')?></th>
+                    <td><?=zidlogs_format_ts($status['last_sent_at'] ?? 0);?></td>
+                    <th><?=gettext('Last attempt')?></th>
+                    <td><?=zidlogs_format_ts($status['last_attempt_at'] ?? 0);?></td>
+                </tr>
+                <tr>
+                    <th><?=gettext('Last rotation')?></th>
+                    <td><?=zidlogs_format_ts($status['last_rotate_at'] ?? 0);?></td>
+                    <th><?=gettext('Next rotation')?></th>
+                    <td><?=zidlogs_format_ts($status['next_rotate_at'] ?? 0);?></td>
+                </tr>
+                <tr>
+                    <th><?=gettext('Ship interval (hours)')?></th>
+                    <td><?=intval($status['ship_interval_hours'] ?? 0);?></td>
+                    <th><?=gettext('Rotate time')?></th>
+                    <td><?=htmlspecialchars($status['rotate_at'] ?? '-');?></td>
+                </tr>
+                <tr>
+                    <th><?=gettext('Last error')?></th>
+                    <td colspan="3"><?=htmlspecialchars($status['last_error_global'] ?? '');?></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <div class="panel panel-default">
     <div class="panel-heading"><h2 class="panel-title"><?=gettext('Status')?></h2></div>
@@ -45,6 +95,11 @@ if (!empty($output)) {
                     <th><?=gettext('Backlog')?></th>
                     <th><?=gettext('Last offset')?></th>
                     <th><?=gettext('Last sent')?></th>
+                    <th><?=gettext('Last attempt')?></th>
+                    <th><?=gettext('Last status')?></th>
+                    <th><?=gettext('Last bytes')?></th>
+                    <th><?=gettext('Last duration (ms)')?></th>
+                    <th><?=gettext('Last rotation')?></th>
                     <th><?=gettext('Last error')?></th>
                 </tr>
             </thead>
@@ -57,7 +112,12 @@ if (!empty($output)) {
                     <td><?=intval($row['file_size']);?></td>
                     <td><?=intval($row['backlog']);?></td>
                     <td><?=intval($row['last_offset']);?></td>
-                    <td><?=intval($row['last_sent_at']);?></td>
+                    <td><?=zidlogs_format_ts($row['last_sent_at']);?></td>
+                    <td><?=zidlogs_format_ts($row['last_attempt_at']);?></td>
+                    <td><?=intval($row['last_status_code']);?></td>
+                    <td><?=intval($row['last_bytes_sent']);?></td>
+                    <td><?=intval($row['last_duration_ms']);?></td>
+                    <td><?=zidlogs_format_ts($row['last_rotate_at']);?></td>
                     <td><?=htmlspecialchars($row['last_error']);?></td>
                 </tr>
                 <?php endforeach; ?>
