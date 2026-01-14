@@ -43,6 +43,30 @@ if (!is_array($config['installedpackages']['zidlogs']['config'])) {
     $config['installedpackages']['zidlogs']['config'] = array();
 }
 
+function zidlogs_detect_version() {
+    $bin = '/usr/local/sbin/zid-logs';
+    if (!is_executable($bin)) {
+        return '';
+    }
+    $out = array();
+    $rc = 0;
+    exec(escapeshellcmd($bin) . " -version 2>&1", $out, $rc);
+    if ($rc !== 0 || empty($out)) {
+        return '';
+    }
+    foreach ($out as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        if (preg_match('/version\\s+([0-9][0-9A-Za-z\\.-]*)/i', $line, $matches)) {
+            return $matches[1];
+        }
+        return $line;
+    }
+    return '';
+}
+
 foreach ($config['installedpackages']['package'] as $idx => $pkg) {
     if (isset($pkg['name']) && $pkg['name'] == 'zid-logs') {
         unset($config['installedpackages']['package'][$idx]);
@@ -50,9 +74,14 @@ foreach ($config['installedpackages']['package'] as $idx => $pkg) {
 }
 $config['installedpackages']['package'] = array_values($config['installedpackages']['package']);
 
+$detected_version = zidlogs_detect_version();
+if ($detected_version === '') {
+    $detected_version = 'unknown';
+}
+
 $config['installedpackages']['package'][] = array(
     'name' => 'zid-logs',
-    'version' => '0.1.10',
+    'version' => $detected_version,
     'descr' => 'ZID Logs - rotacao e envio incremental de logs',
     'website' => '',
     'configurationfile' => 'zid-logs.xml',

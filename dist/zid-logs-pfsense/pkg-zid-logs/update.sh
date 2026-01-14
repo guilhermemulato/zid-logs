@@ -20,6 +20,7 @@ URL="${ZID_LOGS_UPDATE_URL:-$URL_DEFAULT}"
 KEEP_TMP=0
 WAS_RUNNING=0
 FORCE=0
+WAS_ENABLED=0
 
 usage() {
 	cat <<EOF
@@ -52,6 +53,33 @@ pids() {
 		return
 	fi
 	ps ax -o pid= -o command= | awk '/\/usr\/local\/sbin\/zid-logs/ {print $1}'
+}
+
+is_enabled() {
+	if [ -f /usr/local/etc/zid-logs/config.json ] && command -v jq >/dev/null 2>&1; then
+		jq -r '.enabled // false' /usr/local/etc/zid-logs/config.json 2>/dev/null | grep -qi '^true$'
+		return $?
+	fi
+	if [ -f /usr/local/etc/zid-logs/config.json ]; then
+		grep -qi '"enabled"[[:space:]]*:[[:space:]]*true' /usr/local/etc/zid-logs/config.json
+		return $?
+	fi
+	return 1
+}
+
+set_rc_enable() {
+	value="$1"
+	conf="/etc/rc.conf.local"
+	line="zid_logs_enable=\"${value}\""
+	if [ ! -f "${conf}" ]; then
+		touch "${conf}"
+	fi
+	if grep -q '^zid_logs_enable=' "${conf}"; then
+		sed -i.bak "s/^zid_logs_enable=.*/${line}/" "${conf}"
+	else
+		echo "${line}" >> "${conf}"
+	fi
+	chmod 0644 "${conf}" 2>/dev/null || true
 }
 
 while getopts "u:fkh" opt; do
@@ -193,6 +221,15 @@ fi
 if [ -n "$(pids | head -n 1)" ]; then
 	WAS_RUNNING=1
 fi
+if is_enabled; then
+	WAS_ENABLED=1
+fi
+
+if [ "${WAS_ENABLED}" -eq 1 ]; then
+	set_rc_enable "YES"
+else
+	set_rc_enable "NO"
+fi
 
 stop_all
 
@@ -211,7 +248,7 @@ fi
 
 echo ""
 echo "Restarting service..."
-if [ "${WAS_RUNNING}" -eq 1 ]; then
+if [ "${WAS_RUNNING}" -eq 1 ] || [ "${WAS_ENABLED}" -eq 1 ]; then
 	stop_all
 	if [ -x /usr/local/etc/rc.d/zid_logs ]; then
 		/usr/local/etc/rc.d/zid_logs start 2>/dev/null || true
@@ -222,14 +259,19 @@ else
 	echo "(Service was not running before update; not forcing start.)"
 fi
 
-echo ""
-echo "Reloading pfSense web GUI (to pick up updated PHP pages)..."
-if [ -x /usr/local/sbin/pfSsh.php ]; then
-	/usr/local/sbin/pfSsh.php playback reloadwebgui >/dev/null 2>&1 || true
-elif [ -x /etc/rc.restart_webgui ]; then
-	/etc/rc.restart_webgui >/dev/null 2>&1 || true
-elif [ -x /usr/local/etc/rc.d/php-fpm ]; then
-	/usr/local/etc/rc.d/php-fpm restart >/dev/null 2>&1 || true
+if [ "${ZID_LOGS_SKIP_WEBGUI_RELOAD:-0}" -eq 0 ]; then
+	echo ""
+	echo "Reloading pfSense web GUI (to pick up updated PHP pages)..."
+	if [ -x /usr/local/sbin/pfSsh.php ]; then
+		/usr/local/sbin/pfSsh.php playback reloadwebgui >/dev/null 2>&1 || true
+	elif [ -x /etc/rc.restart_webgui ]; then
+		/etc/rc.restart_webgui >/dev/null 2>&1 || true
+	elif [ -x /usr/local/etc/rc.d/php-fpm ]; then
+		/usr/local/etc/rc.d/php-fpm restart >/dev/null 2>&1 || true
+	fi
+else
+	echo ""
+	echo "Skipping web GUI reload (ZID_LOGS_SKIP_WEBGUI_RELOAD=1)."
 fi
 
 echo ""

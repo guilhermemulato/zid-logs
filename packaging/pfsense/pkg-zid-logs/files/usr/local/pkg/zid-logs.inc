@@ -16,6 +16,35 @@ define('ZIDLOGS_PID_FILE', '/var/run/zid-logs.pid');
 define('ZIDLOGS_RCFILE', '/usr/local/etc/rc.d/zid_logs');
 define('ZIDLOGS_BINARY', '/usr/local/sbin/zid-logs');
 
+function zidlogs_set_rc_enable($enabled) {
+	$path = '/etc/rc.conf.local';
+	$value = $enabled ? 'YES' : 'NO';
+	$line = 'zid_logs_enable="' . $value . '"';
+	$lines = array();
+	$found = false;
+
+	if (file_exists($path)) {
+		$lines = file($path, FILE_IGNORE_NEW_LINES);
+		if (!is_array($lines)) {
+			$lines = array();
+		}
+	}
+
+	foreach ($lines as $idx => $row) {
+		if (preg_match('/^zid_logs_enable=/', $row)) {
+			$lines[$idx] = $line;
+			$found = true;
+		}
+	}
+
+	if (!$found) {
+		$lines[] = $line;
+	}
+
+	file_put_contents($path, implode("\n", $lines) . "\n");
+	@chmod($path, 0644);
+}
+
 function zidlogs_tabs($active = 'status') {
 	$tabs = [];
 	$tabs[] = [gettext('Settings'), $active === 'settings', '/zid-logs_config.php'];

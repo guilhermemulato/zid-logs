@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.10.8
+- Update na WebGUI agora transmite a saida em tempo real e finaliza com retorno.
+
+## 0.1.10.7
+- Registro do pacote agora usa a versao do binario para manter a WebGUI atualizada.
+- Update passa a alinhar rc.conf.local com o enable do ZID Logs.
+- Constante de versao do binario atualizada para refletir o bundle.
+
+## 0.1.10.6
+- Versao na WebGUI agora usa config/XML como fonte principal para refletir o update.
+
+## 0.1.10.5
+- Versao na WebGUI agora exibe apenas o numero.
+- Update reinicia o servico quando estiver habilitado, garantindo status running.
+
+## 0.1.10.4
+- Update agora roda em primeiro plano na WebGUI, exibindo saida e evitando travar pela recarga do WebGUI.
+
+## 0.1.10.3
+- Alinhado layout das abas Settings, Status e Inputs ao padrao do ZID Geolocation.
+
 ## 0.1.10.2
 - Update remoto agora roda em background para evitar travamento da WebGUI.
 

@@ -52,32 +52,10 @@ function save_manual_inputs($path, $inputs) {
 $input_errors = array();
 $savemsg = '';
 
-if ($_POST) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $manual_inputs = array();
     if (file_exists($manual_path)) {
         $manual_inputs = parse_inputs_file($manual_path);
-    }
-
-    if (isset($_POST['add_manual'])) {
-        $new_input = array(
-            'package' => trim($_POST['package']),
-            'log_id' => trim($_POST['log_id']),
-            'path' => trim($_POST['path']),
-            'policy' => array(
-                'max_size_mb' => intval($_POST['max_size_mb']),
-                'keep' => intval($_POST['keep']),
-                'compress' => isset($_POST['compress']),
-                'ship_enabled' => isset($_POST['ship_enabled']),
-            ),
-        );
-
-        if (empty($new_input['package']) || empty($new_input['log_id']) || empty($new_input['path'])) {
-            $input_errors[] = 'Package, Log ID and Path are required.';
-        } else {
-            $manual_inputs[] = $new_input;
-            save_manual_inputs($manual_path, $manual_inputs);
-            $savemsg = 'Manual input added.';
-        }
     }
 
     if (isset($_POST['remove_index'])) {
@@ -88,11 +66,41 @@ if ($_POST) {
             save_manual_inputs($manual_path, $manual_inputs);
             $savemsg = 'Manual input removed.';
         }
+    } elseif (isset($_POST['save']) && isset($_POST['zidlogs_inputs_form']) && $_POST['zidlogs_inputs_form'] === '1') {
+        $new_input = array(
+            'package' => trim((string)($_POST['package'] ?? '')),
+            'log_id' => trim((string)($_POST['log_id'] ?? '')),
+            'path' => trim((string)($_POST['path'] ?? '')),
+            'policy' => array(
+                'max_size_mb' => intval($_POST['max_size_mb'] ?? 0),
+                'keep' => intval($_POST['keep'] ?? 0),
+                'compress' => isset($_POST['compress']),
+                'ship_enabled' => isset($_POST['ship_enabled']),
+            ),
+        );
+
+        if ($new_input['package'] === '' || $new_input['log_id'] === '' || $new_input['path'] === '') {
+            $input_errors[] = 'Package, Log ID and Path are required.';
+        } else {
+            $manual_inputs[] = $new_input;
+            save_manual_inputs($manual_path, $manual_inputs);
+            $savemsg = 'Manual input added.';
+        }
     }
 }
 
 $inputs = load_all_inputs($inputs_dir);
 $manual_inputs = file_exists($manual_path) ? parse_inputs_file($manual_path) : array();
+
+$pconfig = array(
+    'package' => '',
+    'log_id' => '',
+    'path' => '',
+    'max_size_mb' => '50',
+    'keep' => '10',
+    'compress' => true,
+    'ship_enabled' => true,
+);
 
 $pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Inputs'));
 include('head.inc');
@@ -150,7 +158,9 @@ display_top_tabs(zidlogs_tabs('inputs'));
                     <td>
                         <form method="post" style="display:inline">
                             <input type="hidden" name="remove_index" value="<?=intval($idx);?>">
-                            <button type="submit" class="btn btn-xs btn-danger"><?=gettext('Remove')?></button>
+                            <button type="submit" class="btn btn-xs btn-danger">
+                                <i class="fa fa-trash"></i> <?=gettext('Remove')?>
+                            </button>
                         </form>
                     </td>
                 </tr>
@@ -160,45 +170,61 @@ display_top_tabs(zidlogs_tabs('inputs'));
     </div>
 </div>
 
-<div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Add manual input')?></h2></div>
-    <div class="panel-body">
-        <form method="post">
-            <div class="form-group">
-                <label><?=gettext('Package')?></label>
-                <input type="text" class="form-control" name="package">
-            </div>
-            <div class="form-group">
-                <label><?=gettext('Log ID')?></label>
-                <input type="text" class="form-control" name="log_id">
-            </div>
-            <div class="form-group">
-                <label><?=gettext('Path')?></label>
-                <input type="text" class="form-control" name="path">
-            </div>
-            <div class="form-group">
-                <label><?=gettext('Max size (MB)')?></label>
-                <input type="number" class="form-control" name="max_size_mb" value="50">
-            </div>
-            <div class="form-group">
-                <label><?=gettext('Keep')?></label>
-                <input type="number" class="form-control" name="keep" value="10">
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="compress" checked>
-                    <?=gettext('Compress')?>
-                </label>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" name="ship_enabled" checked>
-                    <?=gettext('Ship enabled')?>
-                </label>
-            </div>
-            <button type="submit" name="add_manual" class="btn btn-primary"><?=gettext('Add')?></button>
-        </form>
-    </div>
-</div>
+<?php
+$form = new Form();
+$form->addGlobal(new Form_Input(
+    'zidlogs_inputs_form',
+    '',
+    'hidden',
+    '1'
+));
 
-<?php include('foot.inc'); ?>
+$section = new Form_Section(gettext('Add manual input'));
+$section->addInput(new Form_Input(
+    'package',
+    gettext('Package'),
+    'text',
+    $pconfig['package']
+));
+$section->addInput(new Form_Input(
+    'log_id',
+    gettext('Log ID'),
+    'text',
+    $pconfig['log_id']
+));
+$section->addInput(new Form_Input(
+    'path',
+    gettext('Path'),
+    'text',
+    $pconfig['path']
+));
+$section->addInput(new Form_Input(
+    'max_size_mb',
+    gettext('Max size (MB)'),
+    'number',
+    $pconfig['max_size_mb']
+));
+$section->addInput(new Form_Input(
+    'keep',
+    gettext('Keep'),
+    'number',
+    $pconfig['keep']
+));
+$section->addInput(new Form_Checkbox(
+    'compress',
+    gettext('Compress'),
+    gettext('Compress rotated files'),
+    !empty($pconfig['compress'])
+));
+$section->addInput(new Form_Checkbox(
+    'ship_enabled',
+    gettext('Ship enabled'),
+    gettext('Allow shipping for this input'),
+    !empty($pconfig['ship_enabled'])
+));
+$form->add($section);
+
+print($form);
+
+include('foot.inc');
+?>

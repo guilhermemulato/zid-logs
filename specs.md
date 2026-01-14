@@ -16,6 +16,13 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Update remoto roda em background para evitar travamento da WebGUI.
 - Documentacao de registro de logs publicada em zid-logs-register.md.
 - GUI inicial e rc.d adicionados para integracao pfSense.
+- WebGUI alinhada ao estilo e layout das abas do ZID Geolocation.
+- Update na WebGUI roda em primeiro plano com saida na tela e sem recarregar o WebGUI durante a execucao.
+- WebGUI exibe somente o numero da versao instalada e update reinicia o servico quando habilitado.
+- WebGUI usa versao do pacote via config/XML quando disponivel para refletir updates.
+- Registro do pacote usa a versao do binario e rc.conf.local e alinhado ao enable do ZID Logs.
+- Versao do binario alinhada com a versao do bundle.
+- Update na WebGUI exibe saida em tempo real e retorna ao final.
 - Scripts de install/update/uninstall e bootstrap updater adicionados.
 - Testes unitarios iniciais e bundle latest para pfSense adicionados.
 - Registro do pacote pfSense via XML/INC e scripts de ativacao/registro.

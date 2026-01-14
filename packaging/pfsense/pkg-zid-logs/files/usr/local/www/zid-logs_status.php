@@ -2,6 +2,18 @@
 require_once('guiconfig.inc');
 require_once('/usr/local/pkg/zid-logs.inc');
 
+$action_msg = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['rotate_now'])) {
+        shell_exec('/usr/local/sbin/zid-logs rotate > /dev/null 2>&1');
+        $action_msg = 'Rotation executed.';
+    }
+    if (isset($_POST['ship_now'])) {
+        shell_exec('/usr/local/sbin/zid-logs ship > /dev/null 2>&1');
+        $action_msg = 'Ship executed.';
+    }
+}
+
 $pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Status'));
 include('head.inc');
 
@@ -17,6 +29,8 @@ if (!empty($output)) {
     }
 }
 ?>
+
+<?php if ($action_msg) { print_info_box($action_msg, 'success'); } ?>
 
 <div class="panel panel-default">
     <div class="panel-heading"><h2 class="panel-title"><?=gettext('Status')?></h2></div>
@@ -53,25 +67,17 @@ if (!empty($output)) {
 </div>
 
 <form method="post">
-    <div class="panel panel-default">
+    <div class="panel panel-default" id="zidlogs-actions">
+        <div class="panel-heading"><h2 class="panel-title"><?=gettext('Actions')?></h2></div>
         <div class="panel-body">
-            <button type="submit" name="rotate_now" class="btn btn-sm btn-default"><?=gettext('Rotate now')?></button>
-            <button type="submit" name="ship_now" class="btn btn-sm btn-default"><?=gettext('Ship now')?></button>
+            <button type="submit" name="rotate_now" class="btn btn-sm btn-default">
+                <i class="fa fa-refresh"></i> <?=gettext('Rotate now')?>
+            </button>
+            <button type="submit" name="ship_now" class="btn btn-sm btn-default">
+                <i class="fa fa-send"></i> <?=gettext('Ship now')?>
+            </button>
         </div>
     </div>
 </form>
-
-<?php
-if ($_POST) {
-    if (isset($_POST['rotate_now'])) {
-        shell_exec('/usr/local/sbin/zid-logs rotate > /dev/null 2>&1');
-        print_info_box('Rotation executed.', 'success');
-    }
-    if (isset($_POST['ship_now'])) {
-        shell_exec('/usr/local/sbin/zid-logs ship > /dev/null 2>&1');
-        print_info_box('Ship executed.', 'success');
-    }
-}
-?>
 
 <?php include('foot.inc'); ?>

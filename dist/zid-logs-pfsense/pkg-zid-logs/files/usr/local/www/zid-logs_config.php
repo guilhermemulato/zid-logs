@@ -46,8 +46,50 @@ function save_config_file($path, $data) {
 $input_errors = array();
 $savemsg = '';
 $update_msg = '';
+$update_output = '';
+$update_status = '';
+$run_update = false;
+
+function zidlogs_pkg_version_from_config() {
+    global $config;
+    if (!isset($config['installedpackages']['package']) || !is_array($config['installedpackages']['package'])) {
+        return '';
+    }
+    foreach ($config['installedpackages']['package'] as $pkg) {
+        if (!is_array($pkg)) {
+            continue;
+        }
+        $name = (string)($pkg['name'] ?? '');
+        if ($name === 'zid-logs' || $name === 'zidlogs') {
+            return trim((string)($pkg['version'] ?? ''));
+        }
+    }
+    return '';
+}
+
+function zidlogs_pkg_version_from_xml() {
+    $xml_path = '/usr/local/pkg/zid-logs.xml';
+    $raw = @file_get_contents($xml_path);
+    if ($raw === false || $raw === '') {
+        return '';
+    }
+    if (preg_match('/<version>([^<]+)<\\/version>/', $raw, $matches)) {
+        return trim($matches[1]);
+    }
+    return '';
+}
 
 function zidlogs_installed_version_line() {
+    $cfg_version = zidlogs_pkg_version_from_config();
+    if ($cfg_version !== '') {
+        return $cfg_version;
+    }
+
+    $xml_version = zidlogs_pkg_version_from_xml();
+    if ($xml_version !== '') {
+        return $xml_version;
+    }
+
     $bin = '/usr/local/sbin/zid-logs';
     if (!is_executable($bin)) {
         return 'Not installed';
@@ -58,10 +100,20 @@ function zidlogs_installed_version_line() {
     if ($rc !== 0 || empty($out)) {
         return 'Unknown';
     }
-    return trim($out[0]);
+    foreach ($out as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+        if (preg_match('/version\\s+([0-9][0-9A-Za-z\\.-]*)/i', $line, $matches)) {
+            return $matches[1];
+        }
+        return $line;
+    }
+    return 'Unknown';
 }
 
-if ($_POST) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['svc_start'])) {
         zidlogs_start();
         $savemsg = 'Service start requested.';
@@ -74,32 +126,31 @@ if ($_POST) {
         zidlogs_start();
         $savemsg = 'Service restart requested.';
     } elseif (isset($_POST['run_update'])) {
-        $cmd = "/bin/sh /usr/local/sbin/zid-logs-update > /tmp/zid-logs-update.log 2>&1";
-        mwexec_bg($cmd);
-        $update_msg = "Update iniciado. Aguarde alguns minutos e recarregue a pagina.";
-    } else {
+        $run_update = true;
+    } elseif (isset($_POST['save']) && isset($_POST['zidlogs_settings_form']) && $_POST['zidlogs_settings_form'] === '1') {
         $cfg = load_config_file($config_path, $defaults);
 
         $cfg['enabled'] = isset($_POST['enabled']);
-        $cfg['endpoint'] = trim($_POST['endpoint']);
-        $cfg['auth_token'] = trim($_POST['auth_token']);
-        $cfg['auth_header_name'] = trim($_POST['auth_header_name']);
-        $cfg['interval_rotate_seconds'] = intval($_POST['interval_rotate_seconds']);
-        $cfg['interval_ship_seconds'] = intval($_POST['interval_ship_seconds']);
-        $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship']);
-        $cfg['ship_format'] = trim($_POST['ship_format']);
+        $cfg['endpoint'] = trim((string)($_POST['endpoint'] ?? ''));
+        $cfg['auth_token'] = trim((string)($_POST['auth_token'] ?? ''));
+        $cfg['auth_header_name'] = trim((string)($_POST['auth_header_name'] ?? ''));
+        $cfg['interval_rotate_seconds'] = intval($_POST['interval_rotate_seconds'] ?? 0);
+        $cfg['interval_ship_seconds'] = intval($_POST['interval_ship_seconds'] ?? 0);
+        $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship'] ?? 0);
+        $cfg['ship_format'] = trim((string)($_POST['ship_format'] ?? 'lines'));
 
-        $cfg['defaults']['max_size_mb'] = intval($_POST['defaults_max_size_mb']);
-        $cfg['defaults']['keep'] = intval($_POST['defaults_keep']);
+        $cfg['defaults']['max_size_mb'] = intval($_POST['defaults_max_size_mb'] ?? 0);
+        $cfg['defaults']['keep'] = intval($_POST['defaults_keep'] ?? 0);
         $cfg['defaults']['compress'] = isset($_POST['defaults_compress']);
         $cfg['defaults']['rotate_on_start'] = isset($_POST['defaults_rotate_on_start']);
 
-        if ($cfg['enabled'] && empty($cfg['endpoint'])) {
+        if ($cfg['enabled'] && $cfg['endpoint'] === '') {
             $input_errors[] = 'Endpoint is required when enabled.';
         }
 
         if (count($input_errors) == 0) {
             save_config_file($config_path, $cfg);
+            zidlogs_set_rc_enable($cfg['enabled']);
             $savemsg = 'Settings saved.';
             if ($cfg['enabled']) {
                 zidlogs_start();
@@ -111,6 +162,21 @@ if ($_POST) {
 $cfg = load_config_file($config_path, $defaults);
 $service_enabled = !empty($cfg['enabled']);
 
+$pconfig = array(
+    'enabled' => !empty($cfg['enabled']),
+    'endpoint' => $cfg['endpoint'],
+    'auth_token' => $cfg['auth_token'],
+    'auth_header_name' => $cfg['auth_header_name'],
+    'interval_rotate_seconds' => $cfg['interval_rotate_seconds'],
+    'interval_ship_seconds' => $cfg['interval_ship_seconds'],
+    'max_bytes_per_ship' => $cfg['max_bytes_per_ship'],
+    'ship_format' => $cfg['ship_format'],
+    'defaults_max_size_mb' => $cfg['defaults']['max_size_mb'],
+    'defaults_keep' => $cfg['defaults']['keep'],
+    'defaults_compress' => !empty($cfg['defaults']['compress']),
+    'defaults_rotate_on_start' => !empty($cfg['defaults']['rotate_on_start']),
+);
+
 $pgtitle = array(gettext('Services'), gettext('ZID Logs'), gettext('Settings'));
 include('head.inc');
 
@@ -118,119 +184,191 @@ display_top_tabs(zidlogs_tabs('settings'));
 ?>
 
 <?php if ($savemsg) { print_info_box($savemsg, 'success'); } ?>
-<?php if ($update_msg) { print_info_box(htmlspecialchars($update_msg), 'info'); } ?>
+<?php if ($update_msg) { print_info_box(htmlspecialchars($update_msg), $update_status ?: 'info'); } ?>
+<?php if ($update_output) { print_info_box('<pre>' . htmlspecialchars($update_output) . '</pre>', 'info'); } ?>
 <?php if ($input_errors) { print_input_errors($input_errors); } ?>
+<?php
+if ($run_update) {
+    set_time_limit(0);
+    ignore_user_abort(true);
+    while (ob_get_level() > 0) {
+        ob_end_flush();
+    }
+    ob_implicit_flush(true);
 
-<form method="post">
+    echo '<div class="panel panel-default">';
+    echo '<div class="panel-heading"><h2 class="panel-title">' . gettext('Update output') . '</h2></div>';
+    echo '<div class="panel-body"><pre>';
+
+    $cmd = 'env ZID_LOGS_SKIP_WEBGUI_RELOAD=1 /bin/sh /usr/local/sbin/zid-logs-update 2>&1';
+    $descriptors = array(
+        1 => array('pipe', 'w'),
+    );
+    $process = proc_open($cmd, $descriptors, $pipes);
+    $rc = 1;
+    if (is_resource($process)) {
+        while (!feof($pipes[1])) {
+            $line = fgets($pipes[1]);
+            if ($line === false) {
+                break;
+            }
+            echo htmlspecialchars($line);
+            flush();
+        }
+        fclose($pipes[1]);
+        $rc = proc_close($process);
+    } else {
+        echo htmlspecialchars(gettext('Failed to start update.'));
+    }
+
+    echo '</pre></div></div>';
+
+    if ($rc === 0) {
+        print_info_box(gettext('Done.'), 'success');
+    } else {
+        print_info_box(gettext('Update failed.'), 'danger');
+    }
+}
+?>
+
 <div class="panel panel-default">
     <div class="panel-heading"><h2 class="panel-title"><?=gettext('Installed Version')?></h2></div>
     <div class="panel-body">
         <code><?=htmlspecialchars(zidlogs_installed_version_line());?></code>
-        <div style="clear: both;"></div>
     </div>
 </div>
 
-<div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Service controls')?></h2></div>
+<div class="panel panel-default" id="zidlogs-service-controls">
+    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Service Controls')?></h2></div>
     <div class="panel-body">
-        <?php if (zidlogs_status()): ?>
-            <span class="label label-success"><?=gettext('Running')?></span>
-            &nbsp;
-            <button type="submit" name="svc_stop" class="btn btn-sm btn-warning">
-                <i class="fa fa-stop"></i> <?=gettext('Stop')?>
-            </button>
-            <button type="submit" name="svc_restart" class="btn btn-sm btn-primary">
-                <i class="fa fa-refresh"></i> <?=gettext('Restart')?>
-            </button>
-        <?php else: ?>
-            <?php if ($service_enabled): ?>
-                <span class="label label-danger"><?=gettext('Stopped')?></span>
+        <form method="post">
+            <?php if (zidlogs_status()): ?>
+                <span class="label label-success"><?=gettext('Running')?></span>
                 &nbsp;
-                <button type="submit" name="svc_start" class="btn btn-sm btn-success">
-                    <i class="fa fa-play"></i> <?=gettext('Start')?>
+                <button type="submit" name="svc_stop" class="btn btn-sm btn-warning">
+                    <i class="fa fa-stop"></i> <?=gettext('Stop')?>
+                </button>
+                <button type="submit" name="svc_restart" class="btn btn-sm btn-primary">
+                    <i class="fa fa-refresh"></i> <?=gettext('Restart')?>
                 </button>
             <?php else: ?>
-                <span class="label label-default"><?=gettext('Disabled')?></span>
+                <?php if ($service_enabled): ?>
+                    <span class="label label-danger"><?=gettext('Stopped')?></span>
+                    &nbsp;
+                    <button type="submit" name="svc_start" class="btn btn-sm btn-success">
+                        <i class="fa fa-play"></i> <?=gettext('Start')?>
+                    </button>
+                <?php else: ?>
+                    <span class="label label-default"><?=gettext('Disabled')?></span>
+                    &nbsp;
+                    <button type="button" class="btn btn-sm btn-success" disabled="disabled">
+                        <i class="fa fa-play"></i> <?=gettext('Start')?>
+                    </button>
+                    <span class="text-muted" style="margin-left:8px;">
+                        <?=gettext('Ative o servico nas configuracoes para iniciar.')?>
+                    </span>
+                <?php endif; ?>
             <?php endif; ?>
-        <?php endif; ?>
-        <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
-                onclick="return confirm('Run update now?');"><?=gettext('Update')?></button>
-        <div style="clear: both;"></div>
+
+            <button type="submit" name="run_update" class="btn btn-sm btn-default pull-right"
+                    onclick="return confirm('<?=gettext("Run update now?")?>');">
+                <i class="fa fa-download"></i> <?=gettext('Update')?>
+            </button>
+        </form>
     </div>
 </div>
 
-<div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Settings')?></h2></div>
-    <div class="panel-body">
-        <div class="form-group">
-            <label><?=gettext('Enable')?></label>
-            <input type="checkbox" name="enabled" value="yes" <?php if ($cfg['enabled']) echo 'checked'; ?>>
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Endpoint')?></label>
-            <input type="text" class="form-control" name="endpoint" value="<?=htmlspecialchars($cfg['endpoint']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Auth header name')?></label>
-            <input type="text" class="form-control" name="auth_header_name" value="<?=htmlspecialchars($cfg['auth_header_name']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Auth token')?></label>
-            <input type="text" class="form-control" name="auth_token" value="<?=htmlspecialchars($cfg['auth_token']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Rotate interval (s)')?></label>
-            <input type="number" class="form-control" name="interval_rotate_seconds" value="<?=intval($cfg['interval_rotate_seconds']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Ship interval (s)')?></label>
-            <input type="number" class="form-control" name="interval_ship_seconds" value="<?=intval($cfg['interval_ship_seconds']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Max bytes per ship')?></label>
-            <input type="number" class="form-control" name="max_bytes_per_ship" value="<?=intval($cfg['max_bytes_per_ship']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Ship format')?></label>
-            <select name="ship_format" class="form-control">
-                <option value="lines" <?php if ($cfg['ship_format'] == 'lines') echo 'selected'; ?>>lines</option>
-                <option value="raw" <?php if ($cfg['ship_format'] == 'raw') echo 'selected'; ?>>raw</option>
-            </select>
-        </div>
-    </div>
-</div>
+<?php
+$form = new Form();
+$form->addGlobal(new Form_Input(
+    'zidlogs_settings_form',
+    '',
+    'hidden',
+    '1'
+));
 
-<div class="panel panel-default">
-    <div class="panel-heading"><h2 class="panel-title"><?=gettext('Rotation defaults')?></h2></div>
-    <div class="panel-body">
-        <div class="form-group">
-            <label><?=gettext('Max size (MB)')?></label>
-            <input type="number" class="form-control" name="defaults_max_size_mb" value="<?=intval($cfg['defaults']['max_size_mb']);?>">
-        </div>
-        <div class="form-group">
-            <label><?=gettext('Keep')?></label>
-            <input type="number" class="form-control" name="defaults_keep" value="<?=intval($cfg['defaults']['keep']);?>">
-        </div>
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="defaults_compress" value="yes" <?php if (!empty($cfg['defaults']['compress'])) echo 'checked'; ?>>
-                <?=gettext('Compress')?>
-            </label>
-        </div>
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="defaults_rotate_on_start" value="yes" <?php if (!empty($cfg['defaults']['rotate_on_start'])) echo 'checked'; ?>>
-                <?=gettext('Rotate on start')?>
-            </label>
-        </div>
-    </div>
-</div>
+$section = new Form_Section(gettext('Settings'));
+$section->addInput(new Form_Checkbox(
+    'enabled',
+    gettext('Enable'),
+    gettext('Enable ZID Logs service'),
+    !empty($pconfig['enabled'])
+));
+$section->addInput(new Form_Input(
+    'endpoint',
+    gettext('Endpoint'),
+    'text',
+    $pconfig['endpoint']
+));
+$section->addInput(new Form_Input(
+    'auth_header_name',
+    gettext('Auth header name'),
+    'text',
+    $pconfig['auth_header_name']
+));
+$section->addInput(new Form_Input(
+    'auth_token',
+    gettext('Auth token'),
+    'text',
+    $pconfig['auth_token']
+));
+$section->addInput(new Form_Input(
+    'interval_rotate_seconds',
+    gettext('Rotate interval (s)'),
+    'number',
+    $pconfig['interval_rotate_seconds']
+));
+$section->addInput(new Form_Input(
+    'interval_ship_seconds',
+    gettext('Ship interval (s)'),
+    'number',
+    $pconfig['interval_ship_seconds']
+));
+$section->addInput(new Form_Input(
+    'max_bytes_per_ship',
+    gettext('Max bytes per ship'),
+    'number',
+    $pconfig['max_bytes_per_ship']
+));
+$section->addInput(new Form_Select(
+    'ship_format',
+    gettext('Ship format'),
+    $pconfig['ship_format'],
+    array(
+        'lines' => gettext('lines'),
+        'raw' => gettext('raw'),
+    )
+));
+$form->add($section);
 
-<div class="panel panel-default">
-    <div class="panel-body">
-        <button type="submit" class="btn btn-primary"><?=gettext('Save')?></button>
-    </div>
-</div>
-</form>
+$section = new Form_Section(gettext('Rotation defaults'));
+$section->addInput(new Form_Input(
+    'defaults_max_size_mb',
+    gettext('Max size (MB)'),
+    'number',
+    $pconfig['defaults_max_size_mb']
+));
+$section->addInput(new Form_Input(
+    'defaults_keep',
+    gettext('Keep'),
+    'number',
+    $pconfig['defaults_keep']
+));
+$section->addInput(new Form_Checkbox(
+    'defaults_compress',
+    gettext('Compress'),
+    gettext('Compress rotated files'),
+    !empty($pconfig['defaults_compress'])
+));
+$section->addInput(new Form_Checkbox(
+    'defaults_rotate_on_start',
+    gettext('Rotate on start'),
+    gettext('Rotate logs when service starts'),
+    !empty($pconfig['defaults_rotate_on_start'])
+));
+$form->add($section);
 
-<?php include('foot.inc'); ?>
+print($form);
+
+include('foot.inc');
+?>
