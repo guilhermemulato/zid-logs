@@ -25,6 +25,7 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Update na WebGUI exibe saida em tempo real e retorna ao final.
 - Rotacao configurada por horario fixo (HH:MM) e envio por intervalo em horas.
 - Rotacao agendada força rotacao independente do tamanho do arquivo.
+- Post-rotate com sinal/comando executa tambem em rotacao agendada.
 - Start do servico fecha stdout/stderr para evitar travamento do update na WebGUI.
 - Update reinicia o servico via onestart quando habilitado.
 - rc.d usa daemon -f para compatibilidade com pfSense.

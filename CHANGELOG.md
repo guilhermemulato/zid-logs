@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10.17
+- Post-rotate passa a ser executado tambem em rotacao agendada.
+- Evita envio duplicado de sinal no fluxo de rotacao manual/size-based.
+
 ## 0.1.10.10
 - Status agora inclui resumo, envio e rotacao, e leitura read-only do state nao faz update de bucket.
 

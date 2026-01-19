@@ -26,7 +26,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-const version = "0.1.10.16"
+const version = "0.1.10.17"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -440,9 +440,6 @@ func rotateAll(cfg config.Config, inputs []registry.LogInput, st *state.State, f
 			return err
 		}
 		if rotated {
-			if err := notifyPostRotate(input); err != nil {
-				log.Printf("post-rotate falhou %s: %v", input.Path, err)
-			}
 			log.Printf("rotacionado %s", input.Path)
 		}
 	}
@@ -605,6 +602,11 @@ func rotateScheduled(cfg config.Config, input registry.LogInput, st *state.State
 			}
 			cp.LastRotateAt = time.Now().Unix()
 			_ = st.SaveCheckpoint(cp)
+		}
+	}
+	if rotated {
+		if err := notifyPostRotate(input); err != nil {
+			log.Printf("post-rotate falhou %s: %v", input.Path, err)
 		}
 	}
 	return rotated, nil
