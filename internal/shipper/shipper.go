@@ -104,6 +104,7 @@ func ShipOnce(ctx context.Context, input registry.LogInput, cfg config.Config, s
 	if err != nil {
 		return nil, err
 	}
+	fillCheckpointWindow(&cp, input, payload)
 
 	cp.LastAttemptAt = time.Now().Unix()
 	cp.LastBytesSent = int64(n)
@@ -156,6 +157,50 @@ func buildPayload(input registry.LogInput, cfg config.Config, cp state.Checkpoin
 	}
 
 	return payload, nil
+}
+
+func fillCheckpointWindow(cp *state.Checkpoint, input registry.LogInput, payload Payload) {
+	cp.LastLinesSent = 0
+	cp.LastWindowStart = 0
+	cp.LastWindowEnd = 0
+	if len(payload.Lines) == 0 {
+		return
+	}
+	cp.LastLinesSent = len(payload.Lines)
+	if input.TimestampLayout == "" {
+		return
+	}
+	start, end := parseTimestampWindow(payload.Lines, input.TimestampLayout)
+	cp.LastWindowStart = start
+	cp.LastWindowEnd = end
+}
+
+func parseTimestampWindow(lines []string, layout string) (int64, int64) {
+	var start int64
+	var end int64
+	for _, line := range lines {
+		ts, ok := parseLineTimestamp(line, layout)
+		if !ok {
+			continue
+		}
+		if start == 0 {
+			start = ts.Unix()
+		}
+		end = ts.Unix()
+	}
+	return start, end
+}
+
+func parseLineTimestamp(line string, layout string) (time.Time, bool) {
+	if layout == "" || len(line) < len(layout) {
+		return time.Time{}, false
+	}
+	prefix := line[:len(layout)]
+	ts, err := time.ParseInLocation(layout, prefix, time.Local)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return ts, true
 }
 
 func postPayload(ctx context.Context, cfg config.Config, payload Payload) (int, int64, error) {

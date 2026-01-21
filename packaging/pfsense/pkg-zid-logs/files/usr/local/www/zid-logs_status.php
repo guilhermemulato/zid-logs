@@ -39,10 +39,31 @@ function zidlogs_format_ts($ts) {
     }
     return date('Y-m-d H:i:s', $ts);
 }
+
+function zidlogs_format_mb($bytes) {
+    $bytes = floatval($bytes);
+    if ($bytes <= 0) {
+        return '0.00 MB';
+    }
+    return number_format($bytes / 1024 / 1024, 2, '.', '') . ' MB';
+}
+
+function zidlogs_format_range($start, $end) {
+    $start = intval($start);
+    $end = intval($end);
+    if ($start <= 0 || $end <= 0) {
+        return '-';
+    }
+    if ($start == $end) {
+        return zidlogs_format_ts($start);
+    }
+    return zidlogs_format_ts($start) . ' -> ' . zidlogs_format_ts($end);
+}
 ?>
 
 <?php if ($action_msg) { print_info_box($action_msg, 'success'); } ?>
 <?php if ($status_error) { print_info_box(htmlspecialchars($status_error), 'warning'); } ?>
+<?php if (!empty($status['status_warning'])) { print_info_box(htmlspecialchars($status['status_warning']), 'warning'); } ?>
 
 <div class="panel panel-default">
     <div class="panel-heading"><h2 class="panel-title"><?=gettext('Summary')?></h2></div>
@@ -53,7 +74,7 @@ function zidlogs_format_ts($ts) {
                     <th><?=gettext('Total inputs')?></th>
                     <td><?=intval($status['total_inputs'] ?? 0);?></td>
                     <th><?=gettext('Total backlog')?></th>
-                    <td><?=intval($status['total_backlog'] ?? 0);?></td>
+                    <td><?=zidlogs_format_mb($status['total_backlog'] ?? 0);?></td>
                 </tr>
                 <tr>
                     <th><?=gettext('Last sent')?></th>
@@ -98,6 +119,8 @@ function zidlogs_format_ts($ts) {
                     <th><?=gettext('Last attempt')?></th>
                     <th><?=gettext('Last status')?></th>
                     <th><?=gettext('Last bytes')?></th>
+                    <th><?=gettext('Last lines')?></th>
+                    <th><?=gettext('Last window')?></th>
                     <th><?=gettext('Last duration (ms)')?></th>
                     <th><?=gettext('Last rotation')?></th>
                     <th><?=gettext('Last error')?></th>
@@ -109,13 +132,15 @@ function zidlogs_format_ts($ts) {
                     <td><?=htmlspecialchars($row['package']);?></td>
                     <td><?=htmlspecialchars($row['log_id']);?></td>
                     <td><?=htmlspecialchars($row['path']);?></td>
-                    <td><?=intval($row['file_size']);?></td>
-                    <td><?=intval($row['backlog']);?></td>
-                    <td><?=intval($row['last_offset']);?></td>
+                    <td><?=zidlogs_format_mb($row['file_size']);?></td>
+                    <td><?=zidlogs_format_mb($row['backlog']);?></td>
+                    <td><?=zidlogs_format_mb($row['last_offset']);?></td>
                     <td><?=zidlogs_format_ts($row['last_sent_at']);?></td>
                     <td><?=zidlogs_format_ts($row['last_attempt_at']);?></td>
                     <td><?=intval($row['last_status_code']);?></td>
-                    <td><?=intval($row['last_bytes_sent']);?></td>
+                    <td><?=zidlogs_format_mb($row['last_bytes_sent']);?></td>
+                    <td><?=intval($row['last_lines_sent'] ?? 0);?></td>
+                    <td><?=zidlogs_format_range($row['last_window_start'] ?? 0, $row['last_window_end'] ?? 0);?></td>
                     <td><?=intval($row['last_duration_ms']);?></td>
                     <td><?=zidlogs_format_ts($row['last_rotate_at']);?></td>
                     <td><?=htmlspecialchars($row['last_error']);?></td>

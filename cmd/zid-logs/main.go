@@ -26,7 +26,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-const version = "0.1.10.17"
+const version = "0.1.10.19"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -88,6 +88,7 @@ func runCmd() {
 	defer shipTicker.Stop()
 
 	log.Printf("zid-logs iniciado")
+	writeStatusSnapshot(cfg, inputs, st, "")
 	rotateIfDue(cfg, inputs, st)
 
 	for {
@@ -95,18 +96,24 @@ func runCmd() {
 		case <-rotateSched.C:
 			mu.Lock()
 			inputs = refreshInputs(inputs)
+			var lastErr string
 			if cfg.RotateAt != "" {
 				rotateIfDue(cfg, inputs, st)
 			} else if err := rotateAll(cfg, inputs, st, false); err != nil {
 				log.Printf("erro na rotacao: %v", err)
+				lastErr = err.Error()
 			}
+			writeStatusSnapshot(cfg, inputs, st, lastErr)
 			mu.Unlock()
 		case <-shipTicker.C():
 			mu.Lock()
 			inputs = refreshInputs(inputs)
+			lastErr := ""
 			if err := shipAll(ctx, cfg, inputs, st); err != nil {
 				log.Printf("erro no envio: %v", err)
+				lastErr = err.Error()
 			}
+			writeStatusSnapshot(cfg, inputs, st, lastErr)
 			mu.Unlock()
 		case <-reload:
 			mu.Lock()
@@ -283,9 +290,11 @@ func rotateCmd() {
 	defer st.Close()
 
 	if err := rotateAll(cfg, inputs, st, true); err != nil {
+		writeStatusSnapshot(cfg, inputs, st, err.Error())
 		log.Printf("erro na rotacao: %v", err)
 		os.Exit(1)
 	}
+	writeStatusSnapshot(cfg, inputs, st, "")
 }
 
 func shipCmd() {
@@ -302,14 +311,25 @@ func shipCmd() {
 
 	ctx := context.Background()
 	if err := shipAll(ctx, cfg, inputs, st); err != nil {
+		writeStatusSnapshot(cfg, inputs, st, err.Error())
 		log.Printf("erro no envio: %v", err)
 		os.Exit(1)
 	}
+	writeStatusSnapshot(cfg, inputs, st, "")
 }
 
 func statusCmd() {
 	cfg, inputs, st, err := loadAllReadOnly()
 	if err != nil {
+		snapshot, ok, snapErr := loadStatusSnapshot()
+		if ok && snapErr == nil {
+			snapshot.StatusWarning = "state.db ocupado; exibindo ultimo status salvo"
+			data, err := json.MarshalIndent(snapshot, "", "  ")
+			if err == nil {
+				fmt.Println(string(data))
+				return
+			}
+		}
 		fmt.Fprintf(os.Stderr, "erro ao carregar configuracoes: %v\n", err)
 		os.Exit(1)
 	}
@@ -404,12 +424,44 @@ func loadAllReadOnly() (config.Config, []registry.LogInput, *state.State, error)
 	st, err := state.OpenReadOnly(config.StateDBPath)
 	if err != nil {
 		if errors.Is(err, bolt.ErrTimeout) || strings.Contains(err.Error(), "timeout") {
-			return cfg, inputs, nil, nil
+			return cfg, inputs, nil, fmt.Errorf("state timeout")
 		}
 		return config.Config{}, nil, nil, err
 	}
 
 	return cfg, inputs, st, nil
+}
+
+const statusSnapshotPath = "/var/db/zid-logs/status.json"
+
+func writeStatusSnapshot(cfg config.Config, inputs []registry.LogInput, st *state.State, lastError string) {
+	if st == nil {
+		return
+	}
+	payload := status.Build(cfg, inputs, st, lastError)
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return
+	}
+	if err := os.MkdirAll(filepath.Dir(statusSnapshotPath), 0755); err != nil {
+		return
+	}
+	_ = os.WriteFile(statusSnapshotPath, data, 0644)
+}
+
+func loadStatusSnapshot() (status.Status, bool, error) {
+	data, err := os.ReadFile(statusSnapshotPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return status.Status{}, false, nil
+		}
+		return status.Status{}, false, err
+	}
+	var payload status.Status
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return status.Status{}, false, err
+	}
+	return payload, true, nil
 }
 
 func loadInputsSafe(dir string) ([]registry.LogInput, error) {

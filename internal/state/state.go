@@ -18,18 +18,21 @@ type FileIdentity struct {
 }
 
 type Checkpoint struct {
-	Package        string       `json:"package"`
-	LogID          string       `json:"log_id"`
-	Path           string       `json:"path"`
-	Identity       FileIdentity `json:"identity"`
-	LastOffset     int64        `json:"last_offset"`
-	LastSentAt     int64        `json:"last_sent_at"`
-	LastError      string       `json:"last_error"`
-	LastAttemptAt  int64        `json:"last_attempt_at"`
-	LastStatusCode int          `json:"last_status_code"`
-	LastBytesSent  int64        `json:"last_bytes_sent"`
-	LastDurationMs int64        `json:"last_duration_ms"`
-	LastRotateAt   int64        `json:"last_rotate_at"`
+	Package         string       `json:"package"`
+	LogID           string       `json:"log_id"`
+	Path            string       `json:"path"`
+	Identity        FileIdentity `json:"identity"`
+	LastOffset      int64        `json:"last_offset"`
+	LastSentAt      int64        `json:"last_sent_at"`
+	LastError       string       `json:"last_error"`
+	LastAttemptAt   int64        `json:"last_attempt_at"`
+	LastStatusCode  int          `json:"last_status_code"`
+	LastBytesSent   int64        `json:"last_bytes_sent"`
+	LastLinesSent   int          `json:"last_lines_sent"`
+	LastWindowStart int64        `json:"last_window_start"`
+	LastWindowEnd   int64        `json:"last_window_end"`
+	LastDurationMs  int64        `json:"last_duration_ms"`
+	LastRotateAt    int64        `json:"last_rotate_at"`
 }
 
 type State struct {

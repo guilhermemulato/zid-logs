@@ -36,6 +36,22 @@ function load_config_file($path, $defaults) {
     return array_replace_recursive($defaults, $json);
 }
 
+function zidlogs_bytes_to_mb($bytes) {
+    $bytes = floatval($bytes);
+    if ($bytes <= 0) {
+        return 0;
+    }
+    return $bytes / 1024 / 1024;
+}
+
+function zidlogs_mb_to_bytes($mb) {
+    $mb = floatval($mb);
+    if ($mb <= 0) {
+        return 0;
+    }
+    return (int)round($mb * 1024 * 1024);
+}
+
 function save_config_file($path, $data) {
     $dir = dirname($path);
     if (!is_dir($dir)) {
@@ -140,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cfg['ship_interval_hours'] = intval($_POST['ship_interval_hours'] ?? 0);
         $cfg['interval_rotate_seconds'] = 0;
         $cfg['interval_ship_seconds'] = 0;
-        $cfg['max_bytes_per_ship'] = intval($_POST['max_bytes_per_ship'] ?? 0);
+        $cfg['max_bytes_per_ship'] = zidlogs_mb_to_bytes($_POST['max_bytes_per_ship'] ?? 0);
         $cfg['ship_format'] = trim((string)($_POST['ship_format'] ?? 'lines'));
 
         $cfg['defaults']['max_size_mb'] = intval($_POST['defaults_max_size_mb'] ?? 0);
@@ -187,7 +203,7 @@ $pconfig = array(
     'auth_header_name' => $cfg['auth_header_name'],
     'rotate_at' => $cfg['rotate_at'],
     'ship_interval_hours' => $cfg['ship_interval_hours'],
-    'max_bytes_per_ship' => $cfg['max_bytes_per_ship'],
+    'max_bytes_per_ship' => zidlogs_bytes_to_mb($cfg['max_bytes_per_ship']),
     'ship_format' => $cfg['ship_format'],
     'defaults_max_size_mb' => $cfg['defaults']['max_size_mb'],
     'defaults_keep' => $cfg['defaults']['keep'],
@@ -344,10 +360,10 @@ $section->addInput(new Form_Input(
 ))->setHelp(gettext('Send logs every N hours.'));
 $section->addInput(new Form_Input(
     'max_bytes_per_ship',
-    gettext('Max bytes per ship'),
+    gettext('Max MB per ship'),
     'number',
     $pconfig['max_bytes_per_ship']
-));
+))->setHelp(gettext('Maximum payload size per ship in MB.'));
 $section->addInput(new Form_Select(
     'ship_format',
     gettext('Ship format'),

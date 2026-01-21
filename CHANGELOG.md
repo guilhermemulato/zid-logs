@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.10.19
+- WebGUI mostra tamanhos em MB e max_bytes_per_ship configuravel em MB.
+- Status salva snapshot para a WebGUI e evita zerar quando state.db esta ocupado.
+- Status exibe linhas enviadas e janela de tempo do ultimo envio.
+
 ## 0.1.10.17
 - Post-rotate passa a ser executado tambem em rotacao agendada.
 - Evita envio duplicado de sinal no fluxo de rotacao manual/size-based.

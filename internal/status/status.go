@@ -13,28 +13,32 @@ import (
 )
 
 type InputStatus struct {
-	Package        string `json:"package"`
-	LogID          string `json:"log_id"`
-	Path           string `json:"path"`
-	Source         string `json:"source"`
-	FileSize       int64  `json:"file_size"`
-	Backlog        int64  `json:"backlog"`
-	LastOffset     int64  `json:"last_offset"`
-	LastSentAt     int64  `json:"last_sent_at"`
-	LastError      string `json:"last_error"`
-	LastAttemptAt  int64  `json:"last_attempt_at"`
-	LastStatusCode int    `json:"last_status_code"`
-	LastBytesSent  int64  `json:"last_bytes_sent"`
-	LastDurationMs int64  `json:"last_duration_ms"`
-	LastRotateAt   int64  `json:"last_rotate_at"`
-	IdentityDev    uint64 `json:"dev"`
-	IdentityIno    uint64 `json:"inode"`
+	Package         string `json:"package"`
+	LogID           string `json:"log_id"`
+	Path            string `json:"path"`
+	Source          string `json:"source"`
+	FileSize        int64  `json:"file_size"`
+	Backlog         int64  `json:"backlog"`
+	LastOffset      int64  `json:"last_offset"`
+	LastSentAt      int64  `json:"last_sent_at"`
+	LastError       string `json:"last_error"`
+	LastAttemptAt   int64  `json:"last_attempt_at"`
+	LastStatusCode  int    `json:"last_status_code"`
+	LastBytesSent   int64  `json:"last_bytes_sent"`
+	LastLinesSent   int    `json:"last_lines_sent"`
+	LastWindowStart int64  `json:"last_window_start"`
+	LastWindowEnd   int64  `json:"last_window_end"`
+	LastDurationMs  int64  `json:"last_duration_ms"`
+	LastRotateAt    int64  `json:"last_rotate_at"`
+	IdentityDev     uint64 `json:"dev"`
+	IdentityIno     uint64 `json:"inode"`
 }
 
 type Status struct {
 	GeneratedAt       int64         `json:"generated_at"`
 	Inputs            []InputStatus `json:"inputs"`
 	LastErrorGlobal   string        `json:"last_error_global"`
+	StatusWarning     string        `json:"status_warning,omitempty"`
 	TotalInputs       int           `json:"total_inputs"`
 	TotalBacklog      int64         `json:"total_backlog"`
 	LastSentAt        int64         `json:"last_sent_at"`
@@ -76,6 +80,9 @@ func Build(cfg config.Config, inputs []registry.LogInput, st *state.State, lastE
 				item.LastAttemptAt = cp.LastAttemptAt
 				item.LastStatusCode = cp.LastStatusCode
 				item.LastBytesSent = cp.LastBytesSent
+				item.LastLinesSent = cp.LastLinesSent
+				item.LastWindowStart = cp.LastWindowStart
+				item.LastWindowEnd = cp.LastWindowEnd
 				item.LastDurationMs = cp.LastDurationMs
 				item.LastRotateAt = cp.LastRotateAt
 				item.IdentityDev = cp.Identity.Dev
