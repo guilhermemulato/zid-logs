@@ -26,7 +26,11 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-const version = "0.1.10.19"
+const (
+	version              = "0.1.10.19.4"
+	licensePackage       = "zid-logs"
+	licenseCheckInterval = 60 * time.Second
+)
 
 func main() {
 	if len(os.Args) < 2 {
@@ -62,6 +66,11 @@ func runCmd() {
 	defer logger.Close()
 	log.SetOutput(logger)
 
+	if err := requireLicense(licensePackage); err != nil {
+		log.Printf("licenca invalida: %s", formatLicenseError(err))
+		os.Exit(2)
+	}
+
 	cfg, inputs, st, err := loadAll()
 	if err != nil {
 		log.Printf("erro ao carregar configuracoes: %v", err)
@@ -74,9 +83,11 @@ func runCmd() {
 		return
 	}
 
-	var mu sync.Mutex
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	licenseStop := startLicenseMonitor(ctx, licensePackage, licenseCheckInterval)
+	var mu sync.Mutex
 
 	reload := make(chan os.Signal, 1)
 	stop := make(chan os.Signal, 1)
@@ -127,6 +138,9 @@ func runCmd() {
 			mu.Unlock()
 		case <-stop:
 			log.Printf("zid-logs encerrando")
+			return
+		case err := <-licenseStop:
+			log.Printf("licenca invalida: %s", formatLicenseError(err))
 			return
 		case <-ctx.Done():
 			return
@@ -282,6 +296,11 @@ func rotateCmd() {
 	defer logger.Close()
 	log.SetOutput(logger)
 
+	if err := requireLicense(licensePackage); err != nil {
+		log.Printf("licenca invalida: %s", formatLicenseError(err))
+		os.Exit(2)
+	}
+
 	cfg, inputs, st, err := loadAll()
 	if err != nil {
 		log.Printf("erro ao carregar configuracoes: %v", err)
@@ -301,6 +320,11 @@ func shipCmd() {
 	logger := newLogger()
 	defer logger.Close()
 	log.SetOutput(logger)
+
+	if err := requireLicense(licensePackage); err != nil {
+		log.Printf("licenca invalida: %s", formatLicenseError(err))
+		os.Exit(2)
+	}
 
 	cfg, inputs, st, err := loadAll()
 	if err != nil {

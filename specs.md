@@ -35,6 +35,8 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Scripts de install/update/uninstall e bootstrap updater adicionados.
 - Testes unitarios iniciais e bundle latest para pfSense adicionados.
 - Registro do pacote pfSense via XML/INC e scripts de ativacao/registro.
+- Licenciamento via zid-packages validado no start e revalidado periodicamente; sem licenca o daemon encerra.
+- WebGUI mascara auth token e auth header name com bolinhas e nao expõe valores no HTML.
 
 ## Build e binarios
 - Sempre gerar binarios para pfSense (FreeBSD/amd64, CGO=0) ao final de cada implementacao:

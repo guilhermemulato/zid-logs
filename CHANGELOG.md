@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.10.19.4
+- Removida mensagem de ajuda nos campos de auth.
+
+## 0.1.10.19.3
+- Campos sensiveis exibem mascara fixa (bolinhas) sem expor o valor real.
+
+## 0.1.10.19.2
+- WebGUI nao exibe auth token e auth header name, mantendo valores existentes quando em branco.
+
+## 0.1.10.19.1
+- Licenciamento via zid-packages no start e revalidacao periodica do daemon.
+
 ## 0.1.10.19
 - WebGUI mostra tamanhos em MB e max_bytes_per_ship configuravel em MB.
 - Status salva snapshot para a WebGUI e evita zerar quando state.db esta ocupado.

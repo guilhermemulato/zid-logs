@@ -24,6 +24,9 @@ $defaults = array(
     ),
 );
 
+$mask_char = "\xE2\x97\x8F";
+$masked_value = str_repeat($mask_char, 8);
+
 function load_config_file($path, $defaults) {
     if (!file_exists($path)) {
         return $defaults;
@@ -150,8 +153,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $cfg['enabled'] = isset($_POST['enabled']);
         $cfg['endpoint'] = trim((string)($_POST['endpoint'] ?? ''));
-        $cfg['auth_token'] = trim((string)($_POST['auth_token'] ?? ''));
-        $cfg['auth_header_name'] = trim((string)($_POST['auth_header_name'] ?? ''));
+        $auth_token = trim((string)($_POST['auth_token'] ?? ''));
+        if ($auth_token !== '' && $auth_token !== $masked_value) {
+            $cfg['auth_token'] = $auth_token;
+        }
+        $auth_header_name = trim((string)($_POST['auth_header_name'] ?? ''));
+        if ($auth_header_name !== '' && $auth_header_name !== $masked_value) {
+            $cfg['auth_header_name'] = $auth_header_name;
+        }
         $cfg['rotate_at'] = trim((string)($_POST['rotate_at'] ?? ''));
         $cfg['ship_interval_hours'] = intval($_POST['ship_interval_hours'] ?? 0);
         $cfg['interval_rotate_seconds'] = 0;
@@ -199,8 +208,8 @@ $service_enabled = !empty($cfg['enabled']);
 $pconfig = array(
     'enabled' => !empty($cfg['enabled']),
     'endpoint' => $cfg['endpoint'],
-    'auth_token' => $cfg['auth_token'],
-    'auth_header_name' => $cfg['auth_header_name'],
+    'auth_token' => $cfg['auth_token'] !== '' ? $masked_value : '',
+    'auth_header_name' => $cfg['auth_header_name'] !== '' ? $masked_value : '',
     'rotate_at' => $cfg['rotate_at'],
     'ship_interval_hours' => $cfg['ship_interval_hours'],
     'max_bytes_per_ship' => zidlogs_bytes_to_mb($cfg['max_bytes_per_ship']),
@@ -337,13 +346,13 @@ $section->addInput(new Form_Input(
 $section->addInput(new Form_Input(
     'auth_header_name',
     gettext('Auth header name'),
-    'text',
+    'password',
     $pconfig['auth_header_name']
 ));
 $section->addInput(new Form_Input(
     'auth_token',
     gettext('Auth token'),
-    'text',
+    'password',
     $pconfig['auth_token']
 ));
 $section->addInput(new Form_Input(
