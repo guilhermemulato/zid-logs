@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	version              = "0.1.10.19.4"
+	version              = "0.1.10.19.6"
 	licensePackage       = "zid-logs"
 	licenseCheckInterval = 60 * time.Second
 )
