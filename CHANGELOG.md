@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10.19.6
+- Removido INSTALL-PFSENSE.md do bundle.
+
+## 0.1.10.19.5
+- Default do Max MB per ship ajustado para 5 MB.
+
 ## 0.1.10.19.4
 - Removida mensagem de ajuda nos campos de auth.
 

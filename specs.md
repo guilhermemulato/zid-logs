@@ -27,7 +27,7 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - Rotacao agendada força rotacao independente do tamanho do arquivo.
 - Post-rotate com sinal/comando executa tambem em rotacao agendada.
 - Status passa a exibir linhas enviadas e janela de tempo do ultimo envio; quando state.db estiver ocupado, usa snapshot salvo em /var/db/zid-logs/status.json.
-- WebGUI mostra tamanhos (size/backlog/offset/bytes) em MB e max_bytes_per_ship configuravel em MB (convertido para bytes no config.json).
+- WebGUI mostra tamanhos (size/backlog/offset/bytes) em MB e max_bytes_per_ship configuravel em MB (convertido para bytes no config.json), com default de 5 MB.
 - Start do servico fecha stdout/stderr para evitar travamento do update na WebGUI.
 - Update reinicia o servico via onestart quando habilitado.
 - rc.d usa daemon -f para compatibilidade com pfSense.

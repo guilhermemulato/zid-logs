@@ -26,7 +26,6 @@ STAGE_DIR_PFSENSE="${STAGE_BASE}/zid-logs-pfsense"
 rm -rf "${STAGE_DIR_PFSENSE}"
 mkdir -p "${STAGE_DIR_PFSENSE}/build"
 
-cp -f INSTALL-PFSENSE.md "${STAGE_DIR_PFSENSE}/INSTALL-PFSENSE.md"
 cp -R packaging/pfsense/pkg-zid-logs "${STAGE_DIR_PFSENSE}/pkg-zid-logs"
 
 cp -f build/zid-logs "${STAGE_DIR_PFSENSE}/build/zid-logs"
