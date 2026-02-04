@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2
+- Reempacotamento da release sem alteracoes de codigo.
+
 ## 0.1.10.19.6
 - Removido INSTALL-PFSENSE.md do bundle.
 

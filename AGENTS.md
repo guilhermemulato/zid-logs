@@ -8,7 +8,7 @@
 - Go: sempre rodar `gofmt -w .` antes de entregar alteracoes.
 - Testes: preferir testes determinísticos em `internal/*/*_test.go`.
 - Mudou codigo? Atualize o `CHANGELOG.md` e **bump de versao** no `Makefile`.
-- Alteracao pequena: use sufixo incremental (ex.: `1.0.11.1`).
+- Alteracao pequena: use sufixo incremental (ex.: `1.6.1`).
 - Alteracao grande: use sufixo incremental (ex.: `1.6`).
 - Ao final, gere novamente os bundles (`make bundle-latest`) e garanta:
     - `zid-logs-latest.version` atualizado
