@@ -26,8 +26,9 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+var version = "dev" // sobrescrito via -ldflags
+
 const (
-	version              = "0.1.10.19.6"
 	licensePackage       = "zid-logs"
 	licenseCheckInterval = 60 * time.Second
 )

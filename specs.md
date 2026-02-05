@@ -21,7 +21,7 @@ zid-logs e um pacote base para pfSense que centraliza rotacao e envio incrementa
 - WebGUI exibe somente o numero da versao instalada e update reinicia o servico quando habilitado.
 - WebGUI usa versao do pacote via config/XML quando disponivel para refletir updates.
 - Registro do pacote usa a versao do binario e rc.conf.local e alinhado ao enable do ZID Logs.
-- Versao do binario alinhada com a versao do bundle.
+- Versao do binario alinhada com a versao do bundle via ldflags do Makefile, com VERSION copiado no install.
 - Update na WebGUI exibe saida em tempo real e retorna ao final.
 - Rotacao configurada por horario fixo (HH:MM) e envio por intervalo em horas.
 - Rotacao agendada força rotacao independente do tamanho do arquivo.

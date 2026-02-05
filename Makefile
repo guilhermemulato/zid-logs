@@ -1,14 +1,15 @@
-VERSION ?= 0.2
+VERSION ?= 0.2.1
+LDFLAGS = -X zid-logs/cmd/zid-logs.version=$(VERSION)
 
 .PHONY: version build build-freebsd clean bundle-latest
 
 build:
 	@mkdir -p build
-	go build -o build/zid-logs ./cmd/zid-logs
+	go build -ldflags "$(LDFLAGS)" -o build/zid-logs ./cmd/zid-logs
 
 build-freebsd:
 	@mkdir -p build
-	GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build -o build/zid-logs ./cmd/zid-logs
+	GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o build/zid-logs ./cmd/zid-logs
 
 clean:
 	rm -rf build dist zid-logs-latest.tar.gz sha256.txt zid-logs-latest.version

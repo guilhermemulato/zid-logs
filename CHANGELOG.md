@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+- Build agora injeta o VERSION do Makefile no binario via ldflags.
+- Install do pfSense copia o VERSION do bundle para /usr/local/share/pfSense-pkg-zid-logs/VERSION.
+
 ## 0.2
 - Reempacotamento da release sem alteracoes de codigo.
 

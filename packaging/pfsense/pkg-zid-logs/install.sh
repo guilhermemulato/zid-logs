@@ -78,6 +78,16 @@ else
     echo "         You need to copy the zid-logs binary to ${PREFIX}/sbin/ manually"
 fi
 
+# Install VERSION from bundle (if present)
+VERSION_SRC="${PKG_DIR}/../VERSION"
+if [ -f "${VERSION_SRC}" ]; then
+    echo "Installing VERSION..."
+    TMP_VERSION="${PREFIX}/share/pfSense-pkg-zid-logs/.VERSION.new.$$"
+    cp "${VERSION_SRC}" "${TMP_VERSION}"
+    chmod 644 "${TMP_VERSION}"
+    mv -f "${TMP_VERSION}" "${PREFIX}/share/pfSense-pkg-zid-logs/VERSION"
+fi
+
 # Create log file
 touch /var/log/zid-logs.log
 chmod 644 /var/log/zid-logs.log
